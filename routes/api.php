@@ -25,13 +25,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\LocationController;
 
-Route::get('/test-db-connection', function () {
-    try {
-        \DB::connection()->getPdo();
-        return "✅ Database connection successful!";
-    } catch (\Exception $e) {
-        return "❌ Database connection failed: " . $e->getMessage();
-    }
+Route::get('/test', function () {
+    return response()->json(['status' => 'Laravel Backend is Working!']);
 });
 
 
