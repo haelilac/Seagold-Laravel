@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Events\MyEvent;
+use Illuminate\Support\Facades\DB;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -20,4 +21,12 @@ Route::get('/', function () {
 Route::get('/trigger-event', function () {
     event(new MyEvent('Hello, this is a test message!'));
     return 'Event has been triggered!';
+});
+Route::get('/test-db-connection', function () {
+    try {
+        DB::connection()->getPdo();
+        return response()->json(['message' => 'Database connection is successful!'], 200);
+    } catch (\Exception $e) {
+        return response()->json(['message' => 'Database connection failed!', 'error' => $e->getMessage()], 500);
+    }
 });
