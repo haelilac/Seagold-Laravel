@@ -13,20 +13,15 @@ use Illuminate\Support\Facades\DB;
 | be assigned to the "web" middleware group. Make something great!
 |
 */
-
-Route::get('/', function () {
-    return view('welcome');
-});
-
-Route::get('/trigger-event', function () {
-    event(new MyEvent('Hello, this is a test message!'));
-    return 'Event has been triggered!';
-});
 Route::get('/test-db-connection', function () {
     try {
-        DB::connection()->getPdo();
-        return response()->json(['message' => 'Database connection is successful!'], 200);
+        $databaseName = DB::connection()->getDatabaseName();
+        if ($databaseName) {
+            return response()->json(['message' => "Successfully connected to the database: {$databaseName}"]);
+        } else {
+            return response()->json(['error' => 'Could not find the database.']);
+        }
     } catch (\Exception $e) {
-        return response()->json(['message' => 'Database connection failed!', 'error' => $e->getMessage()], 500);
+        return response()->json(['error' => 'Database connection failed: ' . $e->getMessage()]);
     }
 });
