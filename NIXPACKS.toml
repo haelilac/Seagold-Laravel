@@ -1,0 +1,2 @@
+[phases.setup]
+environment.PHP_VERSION = "8.2"
