@@ -13,19 +13,4 @@ use Illuminate\Support\Facades\DB;
 | be assigned to the "web" middleware group. Make something great!
 |
 */
-Route::get('/test-db-connection', function () {
-    try {
-        $databaseName = DB::connection()->getDatabaseName();
-        if ($databaseName) {
-            return response()->json(['message' => "Successfully connected to the database: {$databaseName}"]);
-        } else {
-            return response()->json(['error' => 'Could not find the database.']);
-        }
-    } catch (\Exception $e) {
-        return response()->json(['error' => 'Database connection failed: ' . $e->getMessage()]);
-    }
-});
 
-Route::get('/log', function () {
-    return file_get_contents(storage_path('logs/laravel.log'));
-});
