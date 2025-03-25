@@ -25,3 +25,7 @@ Route::get('/test-db-connection', function () {
         return response()->json(['error' => 'Database connection failed: ' . $e->getMessage()]);
     }
 });
+
+Route::get('/log', function () {
+    return file_get_contents(storage_path('logs/laravel.log'));
+});
