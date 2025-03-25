@@ -25,6 +25,16 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\LocationController;
 
+Route::get('/test-db-connection', function () {
+    try {
+        \DB::connection()->getPdo();
+        return "✅ Database connection successful!";
+    } catch (\Exception $e) {
+        return "❌ Database connection failed: " . $e->getMessage();
+    }
+});
+
+
 Route::get('/provinces', [LocationController::class, 'getProvinces']);
 Route::get('/cities/{provinceCode}', [LocationController::class, 'getCities']);
 Route::get('/barangays/{cityMunCode}', [LocationController::class, 'getBarangays']);
