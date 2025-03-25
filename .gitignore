@@ -60,4 +60,3 @@ yarn-error.log*
 #########################
 /.vscode/
 /vendor
-/composer.lock
