@@ -114,6 +114,7 @@ class ApplicationController extends Controller
     
     
 // Accept an application
+// Accept an application
 public function accept(Request $request, $id)
 {
     try {
@@ -166,12 +167,15 @@ public function accept(Request $request, $id)
 
         \Log::info('Application Updated', ['application_id' => $application->id, 'unit_id' => $application->unit_id]);
 
-        // Send credentials to the tenant via email
-        Mail::send([], [], function ($message) use ($application, $password) {
-            $message->to($application->email)
-                ->subject('Your Tenant Account Details')
-                ->text("Dear {$application->first_name} {$application->last_name},\n\nYour account has been successfully created.\nUsername: {$application->email}\nPassword: {$password}\n\nThank you!");
-        });
+        // ✅ Send credentials to the tenant via email using Mailjet
+        Mail::raw("Dear {$application->first_name} {$application->last_name},\n\nYour tenant account has been successfully created.\n\nLogin Details:\nUsername: {$application->email}\nPassword: {$password}\n\nYou can now access your account.\n\nThank you!", 
+            function ($message) use ($application) {
+                $message->to($application->email)
+                        ->subject('Your Tenant Account Details - Seagold Dormitory');
+            }
+        );
+
+        \Log::info('Email Sent Successfully', ['email' => $application->email]);
 
         return response()->json(['message' => 'Tenant account created successfully, and unit assigned.']);
 
