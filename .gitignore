@@ -38,7 +38,7 @@ yarn-error.log*
 # Laravel Backend
 #########################
 /laravel-backend/node_modules
-/laravel-backend/public/storage
+#/laravel-backend/public/storage
 /laravel-backend/storage/logs
 /laravel-backend/storage/framework
 /laravel-backend/storage/*.key

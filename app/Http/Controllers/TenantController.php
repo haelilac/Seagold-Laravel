@@ -435,4 +435,5 @@ public function changeUnit(Request $request, $id)
         return response()->json(['message' => "Payment reminder sent to {$tenant->name}."]);
     }
     
+    
 }

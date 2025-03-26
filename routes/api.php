@@ -288,3 +288,4 @@ Route::put('/tenants/{id}/change-unit', [TenantController::class, 'changeUnit'])
 Route::get('/terminated-tenants', [TenantController::class, 'getTerminatedTenants']);
 Route::put('/applications/{id}/update', [ApplicationController::class, 'update']);
 Route::delete('/tenants/{id}/terminate', [TenantController::class, 'terminateTenant']);
+
