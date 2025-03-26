@@ -37,20 +37,22 @@ class AuthController extends Controller
     
 
     // Refresh Token Endpoint
-public function refreshToken(Request $request)
-{
-    $user = Auth::guard('sanctum')->user();
-    if (!$user) {
-        return response()->json(['error' => 'Unauthorized'], 401);
+    public function refreshToken(Request $request)
+    {
+        $user = Auth::guard('sanctum')->user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+    
+        // Revoke the old token
+        $user->tokens()->delete();
+    
+        // Create a new token
+        $newToken = $user->createToken('API Token', ['admin-tenant'])->plainTextToken;
+    
+        return response()->json(['access_token' => $newToken], 200);
     }
-
-    $token = $user->currentAccessToken();
-    if (!$token || $token->expires_at->lt(now())) {
-        return response()->json(['error' => 'Token expired'], 419);
-    }
-
-    return response()->json(['message' => 'Token is valid'], 200);
-}
+    
 
 
 
