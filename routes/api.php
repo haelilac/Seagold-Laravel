@@ -29,6 +29,9 @@ Route::get('/test', function () {
     return response()->json(['status' => 'Laravel Backend is Working!']);
 });
 
+Route::middleware('auth:sanctum')->post('/auth/validate-token', [AuthController::class, 'validateToken']);
+Route::middleware('auth:sanctum')->post('/auth/refresh-token', [AuthController::class, 'refreshToken']);
+
 
 Route::get('/provinces', [LocationController::class, 'getProvinces']);
 Route::get('/cities/{provinceCode}', [LocationController::class, 'getCities']);
