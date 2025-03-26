@@ -117,6 +117,8 @@ class ApplicationController extends Controller
 public function accept(Request $request, $id)
 {
     try {
+        \Log::info('Accept Method Triggered', ['application_id' => $id, 'request_data' => $request->all()]);
+
         // Find the application
         $application = Application::findOrFail($id);
 
@@ -127,6 +129,7 @@ public function accept(Request $request, $id)
         $unit = Unit::where('unit_code', $unitCode)->first();
 
         if (!$unit) {
+            \Log::error('Unit Not Found', ['unit_code' => $unitCode]);
             return response()->json(['message' => 'Unit code not found for the selected unit.'], 400);
         }
 
@@ -135,9 +138,8 @@ public function accept(Request $request, $id)
         // Check if a user with this email already exists
         $existingUser = User::where('email', $application->email)->first();
         if ($existingUser) {
-            return response()->json([
-                'message' => 'A user with this email already exists.'
-            ], 409);
+            \Log::error('User Already Exists', ['email' => $application->email]);
+            return response()->json(['message' => 'A user with this email already exists.'], 409);
         }
 
         // Generate random credentials
@@ -174,14 +176,14 @@ public function accept(Request $request, $id)
         return response()->json(['message' => 'Tenant account created successfully, and unit assigned.']);
 
     } catch (\Exception $e) {
-        \Log::error('Error accepting application: ' . $e->getMessage());
-
+        \Log::error('Error accepting application', ['error' => $e->getMessage()]);
         return response()->json([
             'message' => 'An error occurred while accepting the application.',
             'error' => $e->getMessage(),
         ], 500);
     }
 }
+
 
 
 public function update(Request $request, $id)
