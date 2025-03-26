@@ -4,7 +4,10 @@
 return [
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
     'allowed_methods' => ['*'],
-    'allowed_origins' => ['https://seagold-dormitory.vercel.app', 'https://seagold-dormitory.onrender.com'],
+    'allowed_origins' => [
+        'https://seagold-dormitory.vercel.app',
+        'https://seagold-dormitory.onrender.com',
+    ],
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['Content-Type', 'X-Requested-With', 'Authorization'],
     'exposed_headers' => ['*'],

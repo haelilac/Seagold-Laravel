@@ -16,51 +16,43 @@ class AuthController extends Controller
     public function validateToken(Request $request)
     {
         $user = Auth::guard('sanctum')->user();
-
+        
         if (!$user) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
-
+    
         if ($user->role === 'admin' || $user->role === 'tenant') {
             return response()->json(['role' => $user->role], 200);
         }
-
+    
+        // Handle guest user logic if necessary
         $guestUser = DB::table('guest_user')->where('user_email', $user->email)->first();
-
+        
         if ($guestUser) {
             return response()->json(['role' => 'guest_user'], 200);
         }
-
+    
         return response()->json(['error' => 'Invalid user type'], 403);
     }
+    
 
     // Refresh Token Endpoint
-    public function refreshToken(Request $request)
-    {
-        $user = Auth::guard('sanctum')->user();
-
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
-
-        $token = $user->currentAccessToken();
-        if (!$token) {
-            return response()->json(['error' => 'No active token found'], 401);
-        }
-
-        // Check if the token is about to expire (less than 5 minutes remaining)
-        $expirationTime = now()->addMinutes(5);
-
-        if ($token->created_at->addMinutes(60)->lessThan($expirationTime)) {
-            // Token is about to expire, so we refresh it
-            $user->tokens()->delete();
-            $newToken = $user->createToken('API Token')->plainTextToken;
-
-            return response()->json(['access_token' => $newToken]);
-        }
-
-        return response()->json(['message' => 'Token is still valid'], 200);
+public function refreshToken(Request $request)
+{
+    $user = Auth::guard('sanctum')->user();
+    if (!$user) {
+        return response()->json(['error' => 'Unauthorized'], 401);
     }
+
+    $token = $user->currentAccessToken();
+    if (!$token || $token->expires_at->lt(now())) {
+        return response()->json(['error' => 'Token expired'], 419);
+    }
+
+    return response()->json(['message' => 'Token is valid'], 200);
+}
+
+
 
     // Login for admin/tenant
     public function login(Request $request)
