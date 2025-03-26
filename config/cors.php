@@ -4,11 +4,20 @@
 return [
         'paths' => ['api/*', 'sanctum/csrf-cookie', '/login-admin-tenant', '/logout'],
         'allowed_methods' => ['*'],
+
         'allowed_headers' => ['Content-Type', 'X-Requested-With', 'Authorization', 'Accept'],
+
         'allowed_origins' => [
             'https://seagold-dormitory.vercel.app',
             'https://seagold-dormitory.onrender.com',
         ],
+
+        'allowed_origins_patterns' => [],
+
+        'exposed_headers' => ['Authorization', 'X-CSRF-TOKEN'],
+
+        'max_age' => 0,
+
         'supports_credentials' => true,
 ];
 
