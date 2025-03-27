@@ -288,18 +288,3 @@ Route::put('/tenants/{id}/change-unit', [TenantController::class, 'changeUnit'])
 Route::get('/terminated-tenants', [TenantController::class, 'getTerminatedTenants']);
 Route::put('/applications/{id}/update', [ApplicationController::class, 'update']);
 Route::delete('/tenants/{id}/terminate', [TenantController::class, 'terminateTenant']);
-
-Route::get('/send-test-email', function () {
-    try {
-        $testEmail = 'bolokshana.tenant@gmail.com';
-        
-        \Mail::raw('This is a test email from your deployed backend on Railway.', function ($message) use ($testEmail) {
-            $message->to($testEmail)
-                    ->subject('Railway Test Email');
-        });
-
-        return response()->json(['message' => 'Test email sent successfully!']);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 500);
-    }
-});
