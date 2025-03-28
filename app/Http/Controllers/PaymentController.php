@@ -273,7 +273,7 @@ public function updateStatus($user_id)
             try {
                 // 🔍 Prepare the file to be sent to FastAPI
                 $client = new \GuzzleHttp\Client();
-                $response = $client->post('https://seagold-python.onrender.com/upload-id/', [
+                $response = $client->post('seagold-python-production.up.railway.app/upload-id/', [
                     'multipart' => [
                         [
                             'name' => 'file',
