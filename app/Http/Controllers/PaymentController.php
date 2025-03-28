@@ -250,86 +250,85 @@ public function updateStatus($user_id)
     }
     
     public function validateReceipt(Request $request)
-        {
-            \Log::info("📥 Received validateReceipt request", [
-                'headers' => $request->headers->all(),
-                'method' => $request->method(),
-                'files' => $request->allFiles(),
-            ]);
-        
-            if (!$request->hasFile('receipt')) {
-                return response()->json(['message' => 'No receipt uploaded.'], 400);
-            }
-        
-            $request->validate([
-                'receipt' => 'required|file|mimes:png,jpg,jpeg,pdf|max:2048',
-                'user_reference' => 'required|string|min:13|max:13',
-                'user_amount' => 'required|numeric|min:1',
-            ]);
-        
-            $receipt = $request->file('receipt');
-            $receiptPath = $receipt->getPathname();
-        
-            try {
-                // 🔍 Prepare the file to be sent to FastAPI
-                $client = new \GuzzleHttp\Client();
-                $response = $client->post('https://seagold-python-production.up.railway.app/upload-id/', [
-                    'multipart' => [
-                        [
-                            'name' => 'file',
-                            'contents' => fopen($receiptPath, 'r'),
-                            'filename' => $receipt->getClientOriginalName(),
-                        ],
-                        [
-                            'name' => 'id_type',
-                            'contents' => 'gcash', // or specify another id type if needed
-                        ],
-                    ]
-                ]);
-            
-                $responseContent = $response->getBody()->getContents();
-                \Log::info("📜 FastAPI Response: " . $responseContent);
-            
-                $ocrData = json_decode($responseContent, true);
-            
-                if (!$ocrData || !isset($ocrData['extracted_reference']) || !isset($ocrData['extracted_amount'])) {
-                    return response()->json(['message' => 'Could not extract reference number or amount.'], 400);
-                }
-            
-                $extractedReference = trim(strval($ocrData['extracted_reference']));
-                $extractedAmount = floatval($ocrData['extracted_amount']);
-                
-                $userReference = trim(strval($request->user_reference));
-                $userAmount = floatval($request->user_amount);
-            
-                if ($extractedReference !== $userReference) {
-                    return response()->json([
-                        'match' => false,
-                        'message' => '❌ Reference number does not match!',
-                        'ocr_data' => $ocrData
-                    ], 400);
-                }
-            
-                if ($extractedAmount !== $userAmount) {
-                    return response()->json([
-                        'match' => false,
-                        'message' => '❌ Amount does not match! Please enter the exact amount from the receipt.',
-                        'ocr_data' => $ocrData
-                    ], 400);
-                }
-            
-                return response()->json([
-                    'match' => true,
-                    'message' => '✅ Receipt validated successfully!',
-                    'ocr_data' => $ocrData
-                ]);
-            } catch (\Exception $e) {
-                \Log::error('Error during receipt validation: ' . $e->getMessage());
-                return response()->json(['message' => 'Server error: Unable to process the receipt.'], 500);
-            }
-            
+    {
+        \Log::info("📥 Received validateReceipt request", [
+            'headers' => $request->headers->all(),
+            'method' => $request->method(),
+            'files' => $request->allFiles(),
+        ]);
+    
+        if (!$request->hasFile('receipt')) {
+            return response()->json(['message' => 'No receipt uploaded.'], 400);
         }
-        
+    
+        $request->validate([
+            'receipt' => 'required|file|mimes:png,jpg,jpeg,pdf|max:2048',
+            'user_reference' => 'required|string|min:13|max:13',
+            'user_amount' => 'required|numeric|min:1',
+        ]);
+    
+        $receipt = $request->file('receipt');
+        $receiptPath = $receipt->getPathname();
+    
+        try {
+            // 🔍 Prepare the file to be sent to FastAPI
+            $client = new \GuzzleHttp\Client();
+            $response = $client->post('https://seagold-python-production.up.railway.app/upload-id/', [
+                'multipart' => [
+                    [
+                        'name' => 'file',
+                        'contents' => fopen($receiptPath, 'r'),
+                        'filename' => $receipt->getClientOriginalName(),
+                    ],
+                    [
+                        'name' => 'id_type',
+                        'contents' => 'gcash',
+                    ],
+                ]
+            ]);
+    
+            $responseContent = $response->getBody()->getContents();
+            \Log::info("📜 FastAPI Response: " . $responseContent);
+    
+            $ocrData = json_decode($responseContent, true);
+    
+            if (!$ocrData || !isset($ocrData['extracted_reference']) || !isset($ocrData['extracted_amount'])) {
+                return response()->json(['message' => 'Could not extract reference number or amount.'], 400);
+            }
+    
+            $extractedReference = trim(strval($ocrData['extracted_reference']));
+            $extractedAmount = floatval($ocrData['extracted_amount']);
+            
+            $userReference = trim(strval($request->user_reference));
+            $userAmount = floatval($request->user_amount);
+    
+            if ($extractedReference !== $userReference) {
+                return response()->json([
+                    'match' => false,
+                    'message' => '❌ Reference number does not match!',
+                    'ocr_data' => $ocrData
+                ], 400);
+            }
+    
+            if ($extractedAmount !== $userAmount) {
+                return response()->json([
+                    'match' => false,
+                    'message' => '❌ Amount does not match! Please enter the exact amount from the receipt.',
+                    'ocr_data' => $ocrData
+                ], 400);
+            }
+    
+            return response()->json([
+                'match' => true,
+                'message' => '✅ Receipt validated successfully!',
+                'ocr_data' => $ocrData
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error during receipt validation: ' . $e->getMessage());
+            return response()->json(['message' => 'Server error: Unable to process the receipt.'], 500);
+        }
+    }
+    
         
     public function getTenantPayments($tenantId)
     {
