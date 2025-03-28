@@ -250,26 +250,6 @@ public function updateStatus($user_id)
     }
     
     public function validateReceipt(Request $request)
-    {
-        \Log::info("📥 Received validateReceipt request", [
-            'headers' => $request->headers->all(),
-            'method' => $request->method(),
-            'files' => $request->allFiles(),
-        ]);
-    
-        // ✅ Ensure a receipt file is uploaded
-        if (!$request->hasFile('receipt')) {
-            return response()->json(['message' => 'No receipt uploaded.'], 400);
-        }
-    
-        // ✅ Validate user input
-        $request->validate([
-            'receipt' => 'required|file|mimes:png,jpg,jpeg,pdf|max:2048',
-            'user_reference' => 'required|string|min:13|max:13',
-            'user_amount' => 'required|numeric|min:1',
-        ]);
-    
-        public function validateReceipt(Request $request)
         {
             \Log::info("📥 Received validateReceipt request", [
                 'headers' => $request->headers->all(),
