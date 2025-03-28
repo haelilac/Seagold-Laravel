@@ -286,6 +286,7 @@ public function updateStatus($user_id)
                     ],
                 ]
             ]);
+            
     
             $responseContent = $response->getBody()->getContents();
             \Log::info("📜 FastAPI Response: " . $responseContent);
