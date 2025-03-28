@@ -286,19 +286,22 @@ public function updateStatus($user_id)
                         ],
                     ]
                 ]);
-        
-                $ocrData = json_decode($response->getBody()->getContents(), true);
-        
+            
+                $responseContent = $response->getBody()->getContents();
+                \Log::info("📜 FastAPI Response: " . $responseContent);
+            
+                $ocrData = json_decode($responseContent, true);
+            
                 if (!$ocrData || !isset($ocrData['extracted_reference']) || !isset($ocrData['extracted_amount'])) {
                     return response()->json(['message' => 'Could not extract reference number or amount.'], 400);
                 }
-        
+            
                 $extractedReference = trim(strval($ocrData['extracted_reference']));
                 $extractedAmount = floatval($ocrData['extracted_amount']);
                 
                 $userReference = trim(strval($request->user_reference));
                 $userAmount = floatval($request->user_amount);
-        
+            
                 if ($extractedReference !== $userReference) {
                     return response()->json([
                         'match' => false,
@@ -306,7 +309,7 @@ public function updateStatus($user_id)
                         'ocr_data' => $ocrData
                     ], 400);
                 }
-        
+            
                 if ($extractedAmount !== $userAmount) {
                     return response()->json([
                         'match' => false,
@@ -314,7 +317,7 @@ public function updateStatus($user_id)
                         'ocr_data' => $ocrData
                     ], 400);
                 }
-        
+            
                 return response()->json([
                     'match' => true,
                     'message' => '✅ Receipt validated successfully!',
@@ -324,6 +327,7 @@ public function updateStatus($user_id)
                 \Log::error('Error during receipt validation: ' . $e->getMessage());
                 return response()->json(['message' => 'Server error: Unable to process the receipt.'], 500);
             }
+            
         }
         
         
