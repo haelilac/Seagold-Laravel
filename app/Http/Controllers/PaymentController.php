@@ -274,7 +274,7 @@ public function updateStatus($user_id)
         \Log::info("📂 Stored receipt at: " . $receiptPath);
     
         // 🚀 Execute Python OCR script
-        $command = "python " . base_path("ocr_script.py") . " " . escapeshellarg($receiptPath) . " 2>&1";
+        $command = "python " . base_path("main.py") . " " . escapeshellarg($receiptPath) . " 2>&1";
         \Log::info("🚀 Executing OCR command: " . $command);
     
         $output = shell_exec($command);

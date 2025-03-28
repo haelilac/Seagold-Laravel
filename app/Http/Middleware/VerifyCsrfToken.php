@@ -13,6 +13,7 @@ class VerifyCsrfToken extends Middleware
      */
     protected $except = [
         'api/*',
+        'api/validate-receipt',
         'api/login-admin-tenant',
         'api/register-guest',
         'api/google-login',
