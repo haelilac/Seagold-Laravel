@@ -48,10 +48,12 @@ class PaymentController extends Controller
             'amount' => 'required|numeric|min:1',
             'payment_method' => 'required|string|max:50',
             'payment_type' => 'required|string|max:50',
-            'reference_number' => 'required|digits:13',
+            'reference_number' => 'nullable|string|max:50',
             'payment_for' => 'required|date',
             'receipt' => 'nullable|file|mimes:png,jpg,jpeg,pdf|max:2048',
         ]);
+        
+        $reference = $request->reference_number ?? 'CASH-' . now()->timestamp;
     
         $unitId = $user->unit_id ?? null; 
         if (!$unitId) {
