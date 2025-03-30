@@ -206,19 +206,23 @@ public function updateStatus($user_id)
         $formattedPayments = $payments->map(function ($payment) {
             return [
                 'id' => $payment->id,
+                'user_id' => $payment->user_id,
                 'tenant_name' => $payment->user?->name ?? 'N/A',
                 'unit_code' => $payment->unit?->unit_code ?? 'N/A',
                 'amount' => $payment->amount,
-                'payment_type' => $payment->payment_type, // ✅ "Partially Paid" or "Fully Paid"
-                'payment_method' => $payment->payment_method, // ✅ "E-Wallet" or "Bank Transfer"
+                'payment_type' => $payment->payment_type,
+                'payment_method' => $payment->payment_method,
                 'reference_number' => $payment->reference_number,
-                'submitted_at' => $payment->created_at,
+                'payment_period' => $payment->payment_period,
+                'remaining_balance' => $payment->remaining_balance,
+                'submitted_at' => $payment->created_at->toDateString(),
                 'status' => $payment->status,
                 'receipt_path' => $payment->receipt_path
                     ? asset('storage/' . $payment->receipt_path)
                     : null,
             ];
         });
+        
     
         return response()->json($formattedPayments);
     }    
