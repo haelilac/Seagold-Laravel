@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Event;
+use App\Events\PaymentRejected;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -149,6 +151,9 @@ public function rejectLatestPayment($user_id)
     }
 
     $payment->update(['status' => 'Rejected']);
+
+    // ✅ Trigger event
+    event(new PaymentRejected($payment->user_id));
 
     return response()->json(['message' => 'Payment rejected successfully!', 'payment' => $payment]);
 }
@@ -354,8 +359,10 @@ public function updateStatus($user_id)
             $unitPrice = $application->set_price ?? $unit->price;
     
             // Retrieve all payments made by the user
-            $payments = \App\Models\Payment::where('user_id', $tenantId)->get();
-    
+            $payments = \App\Models\Payment::where('user_id', $tenantId)
+            ->where('status', 'Confirmed')
+            ->get();
+
             $unpaidBalances = [];
             $dueDate = $this->calculateNextDueDate($application->check_in_date, $application->duration);
     
