@@ -59,6 +59,20 @@ class PaymentController extends Controller
             ], 400);
         }
     
+        // ✅ Check for existing pending payment for the same month
+        $hasPending = Payment::where('user_id', $user->id)
+            ->where('payment_period', $request->payment_for)
+            ->where('status', 'Pending')
+            ->exists();
+
+        if ($hasPending) {
+            return response()->json([
+                'error' => 'Pending Payment Exists',
+                'details' => 'You already have a recent pending transaction for this billing period. Please wait for it to be approved or rejected before submitting another payment.'
+            ], 400);
+        }
+
+    
         $request->validate([
             'amount' => 'required|numeric|min:1',
             'payment_method' => 'required|string|max:50',
