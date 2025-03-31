@@ -212,6 +212,7 @@ Route::post('/payments/reject/{user_id}', [PaymentController::class, 'rejectLate
 
 Route::post('/payments/{id}/confirm', [PaymentController::class, 'updateSpecificPayment']);
 
+Route::delete('/payments/{id}/destroy', [PaymentController::class, 'destroy']);
 
 
 // Unpaid Tenants

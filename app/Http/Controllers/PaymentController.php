@@ -190,6 +190,20 @@ public function updateStatus($user_id)
     
         return response()->json(['message' => 'Payment rejected successfully!']);
     }
+
+    // 🚨 Permanently delete a payment
+    public function destroy($id)
+    {
+        $payment = Payment::withTrashed()->find($id); // Include soft-deleted too
+
+        if (!$payment) {
+            return response()->json(['message' => 'Payment not found.'], 404);
+        }
+
+        $payment->forceDelete(); // 💣 Permanently delete
+        return response()->json(['message' => 'Payment permanently deleted.']);
+    }
+
         
     // Fetch All Payments
     public function index(Request $request)
@@ -198,7 +212,7 @@ public function updateStatus($user_id)
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
     
-        $query = Payment::with(['user', 'unit']);
+        $query = Payment::with(['user', 'unit'])->withoutTrashed(); 
     
         if ($status) {
             $query->where('status', $status);
