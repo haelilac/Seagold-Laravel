@@ -384,56 +384,59 @@ public function changeUnit(Request $request, $id)
         return response()->json($notifications);
     }
     
-    
     public function sendReminder($id)
-    {
+{
+    try {
+        \Log::info("🔔 Sending reminder to tenant ID: {$id}");
+
         $tenant = User::findOrFail($id);
-    
-        // Fetch tenant's application details
+        \Log::info("👤 Found tenant: " . $tenant->name);
+
         $application = \App\Models\Application::where('email', $tenant->email)->first();
-    
-        // Calculate the next due date
-        $checkInDate = Carbon::parse(optional($application)->check_in_date ?? now());
-        $duration = optional($application)->duration ?? 1; // Duration in months
-    
-        // Final due date based on duration
-        $finalDueDate = $checkInDate->copy()->addMonths($duration);
-    
-        // Calculate the next due date (monthly payments)
-        $currentDate = Carbon::now();
-        $monthsElapsed = $currentDate->diffInMonths($checkInDate);
+        if (!$application) {
+            \Log::error("❌ No application found for tenant {$tenant->email}");
+            return response()->json(['error' => 'Application not found'], 404);
+        }
+
+        // Check check_in_date and duration
+        if (!$application->check_in_date || !$application->duration) {
+            \Log::error("❌ Missing check_in_date or duration for tenant {$tenant->email}");
+            return response()->json(['error' => 'Incomplete application data'], 400);
+        }
+
+        $checkInDate = Carbon::parse($application->check_in_date);
+        $duration = $application->duration;
+
+        $monthsElapsed = Carbon::now()->diffInMonths($checkInDate);
         $nextDueDate = $checkInDate->copy()->addMonths($monthsElapsed + 1);
-    
-        // Ensure the next due date does not exceed the final due date
+        $finalDueDate = $checkInDate->copy()->addMonths($duration);
         if ($nextDueDate->greaterThan($finalDueDate)) {
             $nextDueDate = $finalDueDate->toDateString();
         } else {
             $nextDueDate = $nextDueDate->toDateString();
         }
-    
-        // Construct email content
-        $messageBody = view('emails.payment_reminder_inline', [
-            'tenantName' => $tenant->name,
-            'dueDate' => $nextDueDate,
-        ])->render();
-    
-        // Send email
-        Mail::send([], [], function ($message) use ($tenant, $messageBody) {
+
+        // Send Email (still runs silently if email fails)
+        Mail::send([], [], function ($message) use ($tenant, $nextDueDate) {
             $message->to($tenant->email)
                     ->subject('Payment Reminder')
-                    ->html($messageBody);
+                    ->setBody("This is a reminder that your payment is due on {$nextDueDate}", 'text/html');
         });
-        // Create notification
+
+        // Create Notification
         Notification::create([
             'user_id' => $tenant->id,
             'title' => 'Payment Reminder',
-            'message' => "Your payment is due on {$nextDueDate}. Please pay promptly to avoid penalties.",
+            'message' => "Your payment is due on {$nextDueDate}. Please pay promptly.",
         ]);
-        // Broadcast event
-        event(new PaymentReminderEvent($tenant->id, "Dear {$tenant->name}, your payment is due on {$nextDueDate}."));
-    
-        return response()->json(['message' => "Payment reminder sent to {$tenant->name}."]);
+
+        \Log::info("✅ Notification and email sent to {$tenant->email}");
+
+        return response()->json(['message' => "Reminder sent to {$tenant->name}"]);
+    } catch (\Exception $e) {
+        \Log::error("💥 Error in sendReminder: " . $e->getMessage());
+        return response()->json(['error' => 'Server error', 'details' => $e->getMessage()], 500);
     }
-    
-    
+}
+ 
 }
