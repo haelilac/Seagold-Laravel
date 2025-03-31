@@ -405,8 +405,8 @@ public function changeUnit(Request $request, $id)
             // ✅ Send email (skip if not needed)
             Mail::send([], [], function ($message) use ($tenant, $nextDueDate) {
                 $message->to($tenant->email)
-                    ->subject('Payment Reminder')
-                    ->setBody("Your payment is due on {$nextDueDate}. Please pay promptly.", 'text/html');
+                        ->subject('Payment Reminder')
+                        ->html("Your payment is due on {$nextDueDate}. Please pay promptly.");
             });
     
             // ✅ Create notification with is_read default false

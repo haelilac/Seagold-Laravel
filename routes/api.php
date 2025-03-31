@@ -218,6 +218,7 @@ Route::delete('/payments/{id}/destroy', [PaymentController::class, 'destroy']);
 // Unpaid Tenants
 Route::get('/unpaid-tenants', [TenantController::class, 'unpaidTenants']);
 Route::post('/tenants/{id}/send-reminder', [TenantController::class, 'sendReminder']);
+Route::match(['post'], '/tenants/{id}/send-reminder', [TenantController::class, 'sendReminder']);
 
 // Other Routes
 Route::get('/users', [UserController::class, 'index']);
