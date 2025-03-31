@@ -20,6 +20,7 @@ use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\FeedbackController;
 use App\Models\Payment;
 use Symfony\Component\Process\Process;
+use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -290,3 +291,13 @@ Route::put('/tenants/{id}/change-unit', [TenantController::class, 'changeUnit'])
 Route::get('/terminated-tenants', [TenantController::class, 'getTerminatedTenants']);
 Route::put('/applications/{id}/update', [ApplicationController::class, 'update']);
 Route::delete('/tenants/{id}/terminate', [TenantController::class, 'terminateTenant']);
+
+
+Route::get('/run-contract-check', function () {
+    Artisan::call('check:contract-endings');
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Contract ending check triggered.',
+    ]);
+});

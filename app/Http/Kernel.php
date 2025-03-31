@@ -57,6 +57,7 @@ class Kernel extends HttpKernel
     protected function schedule(Schedule $schedule) // Fixed Schedule Import
     {
         $schedule->command('payments:send-reminders')->dailyAt('08:00');
+        $schedule->command('check:contract-endings')->daily(); // or ->monthly()
     }
 
     /**
@@ -83,5 +84,9 @@ class Kernel extends HttpKernel
 
     protected $routeMiddleware = [
         'role' => \App\Http\Middleware\RoleMiddleware::class,
+    ];
+
+    protected $commands = [
+        \App\Console\Commands\CheckContractEndings::class,
     ];
 }
