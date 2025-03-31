@@ -208,62 +208,67 @@ public function updateStatus($user_id)
     // Fetch All Payments
     public function index(Request $request)
     {
-        $status = $request->query('status');
-        $month = $request->query('month');
-        $year = $request->query('year');
-        $search = $request->query('search');
-        $startDate = $request->query('start_date');
-        $endDate = $request->query('end_date');
+        try {
+            $status = $request->query('status');
+            $month = $request->query('month');
+            $year = $request->query('year');
+            $search = $request->query('search');
+            $startDate = $request->query('start_date');
+            $endDate = $request->query('end_date');
     
-        $query = Payment::with(['user', 'unit'])->withoutTrashed();
+            $query = Payment::with(['user', 'unit']);
     
-        if ($status) {
-            $query->where('status', $status);
-        }
+            if (!empty($status)) {
+                $query->where('status', $status);
+            }
     
-        if ($month) {
-            $query->whereMonth('payment_period', $month);
-        }
+            if (!empty($month)) {
+                $query->whereMonth('payment_period', $month);
+            }
     
-        if ($year) {
-            $query->whereYear('payment_period', $year);
-        }
+            if (!empty($year)) {
+                $query->whereYear('payment_period', $year);
+            }
     
-        if ($search) {
-            $query->whereHas('user', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%");
+            if (!empty($search)) {
+                $query->whereHas('user', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                });
+            }
+    
+            if (!empty($startDate) && !empty($endDate)) {
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            }
+    
+            $payments = $query->get();
+    
+            $formattedPayments = $payments->map(function ($payment) {
+                return [
+                    'id' => $payment->id,
+                    'user_id' => $payment->user_id,
+                    'tenant_name' => $payment->user?->name ?? 'N/A',
+                    'unit_code' => $payment->unit?->unit_code ?? 'N/A',
+                    'amount' => $payment->amount,
+                    'payment_type' => $payment->payment_type,
+                    'payment_method' => $payment->payment_method,
+                    'reference_number' => $payment->reference_number,
+                    'payment_period' => $payment->payment_period,
+                    'remaining_balance' => $payment->remaining_balance,
+                    'submitted_at' => $payment->created_at->toDateString(),
+                    'status' => $payment->status,
+                    'receipt_path' => $payment->receipt_path
+                        ? asset('storage/' . $payment->receipt_path)
+                        : null,
+                ];
             });
+    
+            return response()->json($formattedPayments);
+        } catch (\Exception $e) {
+            \Log::error('💥 PaymentController@index error: ' . $e->getMessage());
+            return response()->json(['error' => 'Something went wrong.'], 500);
         }
-    
-        if ($startDate && $endDate) {
-            $query->whereBetween('created_at', [$startDate, $endDate]);
-        }
-    
-        $payments = $query->get();
-    
-        $formattedPayments = $payments->map(function ($payment) {
-            return [
-                'id' => $payment->id,
-                'user_id' => $payment->user_id,
-                'tenant_name' => $payment->user?->name ?? 'N/A',
-                'unit_code' => $payment->unit?->unit_code ?? 'N/A',
-                'amount' => $payment->amount,
-                'payment_type' => $payment->payment_type,
-                'payment_method' => $payment->payment_method,
-                'reference_number' => $payment->reference_number,
-                'payment_period' => $payment->payment_period,
-                'remaining_balance' => $payment->remaining_balance,
-                'submitted_at' => $payment->created_at->toDateString(),
-                'status' => $payment->status,
-                'receipt_path' => $payment->receipt_path
-                    ? asset('storage/' . $payment->receipt_path)
-                    : null,
-            ];
-        });
-    
-        return response()->json($formattedPayments);
     }
-     
+    
     
     public function paymentSummary()
     {
