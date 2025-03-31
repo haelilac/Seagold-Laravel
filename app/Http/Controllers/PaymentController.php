@@ -210,13 +210,15 @@ public function updateStatus($user_id)
 
 
 
-    public function rejectPayment($user_id)
+    // Rename from rejectPayment to rejectPaymentById
+    public function rejectPaymentById($id)
     {
-        $payment = Payment::findOrFail($user_id);
+        $payment = Payment::findOrFail($id);
         $payment->update(['status' => 'Rejected']);
-    
+
         return response()->json(['message' => 'Payment rejected successfully!']);
     }
+
 
     // 🚨 Permanently delete a payment
     public function destroy($id)
