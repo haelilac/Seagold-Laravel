@@ -209,13 +209,30 @@ public function updateStatus($user_id)
     public function index(Request $request)
     {
         $status = $request->query('status');
+        $month = $request->query('month');
+        $year = $request->query('year');
+        $search = $request->query('search');
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
     
-        $query = Payment::with(['user', 'unit'])->withoutTrashed(); 
+        $query = Payment::with(['user', 'unit'])->withoutTrashed();
     
         if ($status) {
             $query->where('status', $status);
+        }
+    
+        if ($month) {
+            $query->whereMonth('payment_period', $month);
+        }
+    
+        if ($year) {
+            $query->whereYear('payment_period', $year);
+        }
+    
+        if ($search) {
+            $query->whereHas('user', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%");
+            });
         }
     
         if ($startDate && $endDate) {
@@ -243,10 +260,10 @@ public function updateStatus($user_id)
                     : null,
             ];
         });
-        
     
         return response()->json($formattedPayments);
-    }    
+    }
+     
     
     public function paymentSummary()
     {
