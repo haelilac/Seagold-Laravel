@@ -14,6 +14,7 @@ class Notification extends Model
         'title',
         'message',
         'is_read',
+        'type',
     ];
 
     // Relationship to User

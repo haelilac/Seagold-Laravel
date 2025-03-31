@@ -385,58 +385,50 @@ public function changeUnit(Request $request, $id)
     }
     
     public function sendReminder($id)
-{
-    try {
-        \Log::info("🔔 Sending reminder to tenant ID: {$id}");
-
-        $tenant = User::findOrFail($id);
-        \Log::info("👤 Found tenant: " . $tenant->name);
-
-        $application = \App\Models\Application::where('email', $tenant->email)->first();
-        if (!$application) {
-            \Log::error("❌ No application found for tenant {$tenant->email}");
-            return response()->json(['error' => 'Application not found'], 404);
-        }
-
-        // Check check_in_date and duration
-        if (!$application->check_in_date || !$application->duration) {
-            \Log::error("❌ Missing check_in_date or duration for tenant {$tenant->email}");
-            return response()->json(['error' => 'Incomplete application data'], 400);
-        }
-
-        $checkInDate = Carbon::parse($application->check_in_date);
-        $duration = $application->duration;
-
-        $monthsElapsed = Carbon::now()->diffInMonths($checkInDate);
-        $nextDueDate = $checkInDate->copy()->addMonths($monthsElapsed + 1);
-        $finalDueDate = $checkInDate->copy()->addMonths($duration);
-        if ($nextDueDate->greaterThan($finalDueDate)) {
-            $nextDueDate = $finalDueDate->toDateString();
-        } else {
-            $nextDueDate = $nextDueDate->toDateString();
-        }
-
-        // Send Email (still runs silently if email fails)
-        Mail::send([], [], function ($message) use ($tenant, $nextDueDate) {
-            $message->to($tenant->email)
+    {
+        try {
+            $tenant = User::findOrFail($id);
+            $application = \App\Models\Application::where('email', $tenant->email)->first();
+    
+            $checkInDate = Carbon::parse(optional($application)->check_in_date ?? now());
+            $duration = optional($application)->duration ?? 1;
+    
+            $monthsElapsed = Carbon::now()->diffInMonths($checkInDate);
+            $nextDueDate = $checkInDate->copy()->addMonths($monthsElapsed + 1);
+            $finalDueDate = $checkInDate->copy()->addMonths($duration);
+            if ($nextDueDate->greaterThan($finalDueDate)) {
+                $nextDueDate = $finalDueDate->toDateString();
+            } else {
+                $nextDueDate = $nextDueDate->toDateString();
+            }
+    
+            // ✅ Send email (skip if not needed)
+            Mail::send([], [], function ($message) use ($tenant, $nextDueDate) {
+                $message->to($tenant->email)
                     ->subject('Payment Reminder')
-                    ->setBody("This is a reminder that your payment is due on {$nextDueDate}", 'text/html');
-        });
-
-        // Create Notification
-        Notification::create([
-            'user_id' => $tenant->id,
-            'title' => 'Payment Reminder',
-            'message' => "Your payment is due on {$nextDueDate}. Please pay promptly.",
-        ]);
-
-        \Log::info("✅ Notification and email sent to {$tenant->email}");
-
-        return response()->json(['message' => "Reminder sent to {$tenant->name}"]);
-    } catch (\Exception $e) {
-        \Log::error("💥 Error in sendReminder: " . $e->getMessage());
-        return response()->json(['error' => 'Server error', 'details' => $e->getMessage()], 500);
+                    ->setBody("Your payment is due on {$nextDueDate}. Please pay promptly.", 'text/html');
+            });
+    
+            // ✅ Create notification with is_read default false
+            Notification::create([
+                'user_id' => $tenant->id,
+                'title' => 'Payment Reminder',
+                'message' => "Your payment is due on {$nextDueDate}. Please pay promptly to avoid penalties.",
+                'is_read' => false,
+                'type' => 'reminder',
+            ]);
+            
+    
+            return response()->json(['message' => "Reminder sent to {$tenant->name}"]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'sendReminder failed',
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ], 500);
+        }
     }
-}
+    
  
 }
