@@ -16,16 +16,29 @@ class PaymentController extends Controller
     {
         $currentMonth = now()->format('F');
     
-        // Fetch tenants who have not paid for the current month
         $unpaidTenants = User::where('role', 'tenant')
             ->whereDoesntHave('payments', function ($query) use ($currentMonth) {
                 $query->where('payment_period', $currentMonth)->where('status', 'Confirmed');
             })
             ->with('unit')
-            ->get();
+            ->get()
+            ->map(function ($tenant) {
+                return [
+                    'id' => $tenant->id,
+                    'name' => $tenant->name,
+                    'unit_code' => $tenant->unit?->unit_code ?? 'N/A',
+                    'total_due' => $tenant->unit?->price ?? 0,
+                    'balance' => $tenant->unit?->price ?? 0,
+                    'due_date' => now()->startOfMonth()->toDateString(),
+                    'status' => 'Unpaid',
+                    'last_payment' => null,
+                    'unpaid_months' => 1
+                ];
+            });
     
         return response()->json($unpaidTenants);
     }
+    
     
     // Store Payment
     public function store(Request $request)
