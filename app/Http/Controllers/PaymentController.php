@@ -281,7 +281,7 @@ public function updateStatus($user_id)
                     'payment_type' => $payment->payment_type,
                     'payment_method' => $payment->payment_method,
                     'reference_number' => $payment->reference_number,
-                    'payment_period' => $payment->payment_period,
+                    'payment_period' => Carbon::parse($payment->payment_period)->toDateString(),
                     'remaining_balance' => $payment->remaining_balance,
                     'submitted_at' => $payment->created_at->toDateString(),
                     'status' => $payment->status,
