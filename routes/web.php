@@ -10,11 +10,13 @@ Route::get('/view-file/{folder}/{filename}', function ($folder, $filename) {
     $safeFolders = ['valid_ids', 'gallery', 'photos', 'receipts'];
     if (!in_array($folder, $safeFolders)) abort(403);
 
-    $path = storage_path("app/public/{$folder}/{$filename}");
+
+    $path = storage_path("app/public/uploads/{$folder}/{$filename}");
     if (!file_exists($path)) abort(404);
 
     return response()->file($path);
 });
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
