@@ -72,7 +72,7 @@ Route::post('/upload-id', function (Request $request) {
         return response()->json([
             'message' => $ocrResult['id_type_matched'] ? 'ID verified successfully' : 'ID mismatch',
             'ocr_text' => $ocrResult['text'],
-            'file_path' => url("api/view-file/valid_ids/" . basename($path)),
+            'file_path' => url("/view-file/valid_ids/" . basename($path)),
             'id_verified' => $ocrResult['id_type_matched'],
         ]);
 
@@ -85,7 +85,7 @@ Route::post('/upload-id', function (Request $request) {
     }
 });
 
-Route::get('/api/view-file/{folder}/{filename}', function ($folder, $filename) {
+Route::get('/view-file/{folder}/{filename}', function ($folder, $filename) {
     $safeFolders = ['valid_ids', 'gallery', 'photos', 'receipts'];
     if (!in_array($folder, $safeFolders)) abort(403);
 
