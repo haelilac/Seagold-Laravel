@@ -2,7 +2,7 @@
 
 
 return [
-        'paths' => ['api/*', 'sanctum/csrf-cookie', '/login-admin-tenant', '/logout'],
+        'paths' => ['api/*', 'sanctum/csrf-cookie', '/login-admin-tenant', '/logout', 'upload-id'],
         'allowed_methods' => ['*'],
 
         'allowed_headers' => ['Content-Type', 'X-Requested-With', 'Authorization', 'Accept'],
