@@ -95,8 +95,10 @@ class PaymentController extends Controller
     
         $unitPrice = $user->unit ? $user->unit->price : 0;
         $previousPayments = Payment::where('user_id', $user->id)
-                                    ->where('payment_period', $request->payment_for)
-                                    ->sum('amount');
+            ->where('payment_period', $request->payment_for)
+            ->where('status', 'Confirmed') // ✅ only subtract confirmed
+            ->sum('amount');
+    
     
         $remainingBalance = max(0, $unitPrice - ($previousPayments + $request->amount));
         $paymentType = ($remainingBalance > 0) ? 'Partially Paid' : 'Fully Paid';
