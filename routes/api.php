@@ -72,7 +72,7 @@ Route::post('/upload-id', function (Request $request) {
         return response()->json([
             'message' => $ocrResult['id_type_matched'] ? 'ID verified successfully' : 'ID mismatch',
             'ocr_text' => $ocrResult['text'],
-            'file_path' => asset("storage/{$path}"),
+            'file_path' => $path,
             'id_verified' => $ocrResult['id_type_matched'],
         ]);
 
