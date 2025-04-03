@@ -43,6 +43,7 @@ Route::post('/validate-receipt', [PaymentController::class, 'validateReceipt']);
 Route::post('/upload-id', function (Request $request) {
     Log::info('Upload ID API called');
 
+    
     try {
         $validated = $request->validate([
             'file' => 'required|image|mimes:jpeg,png,jpg|max:2048',
