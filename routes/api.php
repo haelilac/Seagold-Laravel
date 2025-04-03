@@ -57,8 +57,8 @@ Route::post('/upload-id', function (Request $request) {
         Log::info("Stored ID at: $imagePath");
 
         // ✅ Use Python OCR
-        $pythonPath = "C:\\Users\\shana\\Documents\\dorm-vision\\backend\\.venv\\Scripts\\python.exe";
-        $command = escapeshellcmd("$pythonPath " . base_path("ocr_script.py") . " $imagePath $idType");
+        $pythonPath = 'python3';
+        $command = escapeshellcmd("$pythonPath " . base_path("main.py") . " $imagePath $idType");
 
         $output = shell_exec($command);
         Log::info("OCR Output: " . $output);
