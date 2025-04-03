@@ -50,7 +50,7 @@ Route::post('/upload-id', function (Request $request) {
             'id_type' => 'required|string',
         ]);
 
-        $path = $request->file('file')->store('uploads/valid_ids', 'public');
+        $path = $request->file('file')->store('valid_ids', 'public');
         $imagePath = storage_path("app/public/{$path}");
         $idType = strtolower($validated['id_type']);
 
