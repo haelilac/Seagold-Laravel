@@ -55,7 +55,7 @@ Route::post('/upload-id', function (Request $request) {
 
         $response = Http::attach(
             'file', file_get_contents($imagePath), basename($path)
-        )->post("https://seagold-python-production.up.railway.app/upload-id/", [
+        )->post("https://seagold-python-production.up.railway.app/api/upload-id/", [
             'id_type' => $idType
         ]);
 
