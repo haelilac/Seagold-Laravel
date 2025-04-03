@@ -43,7 +43,7 @@ Route::post('/validate-receipt', [PaymentController::class, 'validateReceipt']);
 Route::post('/upload-id', function (Request $request) {
     Log::info('Upload ID API called');
 
-    
+
     try {
         $validated = $request->validate([
             'file' => 'required|image|mimes:jpeg,png,jpg|max:2048',
@@ -56,7 +56,7 @@ Route::post('/upload-id', function (Request $request) {
 
         $response = Http::attach(
             'file', file_get_contents($imagePath), basename($path)
-        )->post("https://seagold-python-production.up.railway.app/api/upload-id/", [
+        )->post("https://seagold-python-production.up.railway.app/upload-id/", [
             'id_type' => $idType
         ]);
 
