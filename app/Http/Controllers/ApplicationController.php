@@ -188,26 +188,19 @@ public function accept(Request $request, $id)
     }
 }
 
-
 public function update(Request $request, $id)
 {
-    $request->validate([
-        'price_option' => 'required|in:unit,custom',
-        'set_price' => 'nullable|numeric|min:0',
-    ]);
-
     $application = Application::findOrFail($id);
 
-    // Save set_price based on the selected option
-    if ($request->price_option === 'custom') {
-        $application->set_price = $request->set_price;
-    } else {
-        $application->set_price = null;
-    }
+    // Update fields from formData
+    $application->duration = $request->duration;
+    $application->reservation_details = $request->reservation_details;
+    $application->set_price = $request->set_price;
 
     $application->save();
 
-    return redirect()->route('applications.index')->with('success', 'Application updated successfully.');
+    return response()->json(['message' => 'Application updated successfully.']);
 }
+
 
 }
