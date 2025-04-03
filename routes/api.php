@@ -25,6 +25,7 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\LocationController;
+use Illuminate\Support\Facades\Http;
 
 Route::get('/test', function () {
     return response()->json(['status' => 'Laravel Backend is Working!']);
@@ -42,51 +43,38 @@ Route::post('/validate-receipt', [PaymentController::class, 'validateReceipt']);
 Route::post('/upload-id', function (Request $request) {
     Log::info('Upload ID API called');
 
-    
     try {
-        // ✅ Update to match frontend input name
         $validated = $request->validate([
             'file' => 'required|image|mimes:jpeg,png,jpg|max:2048',
             'id_type' => 'required|string',
         ]);
 
-        // ✅ Store file in `public/uploads/valid_ids`
         $path = $request->file('file')->store('uploads/valid_ids', 'public');
         $imagePath = storage_path("app/public/{$path}");
         $idType = strtolower($validated['id_type']);
 
-        Log::info("Stored ID at: $imagePath");
+        $response = Http::attach(
+            'file', file_get_contents($imagePath), basename($path)
+        )->post("https://seagold-python-production.up.railway.app/upload-id/", [
+            'id_type' => $idType
+        ]);
 
-        // ✅ Use Python OCR
-        $pythonPath = 'python3';
-        $command = escapeshellcmd("$pythonPath " . base_path("main.py") . " $imagePath $idType");
-
-        $output = shell_exec($command);
-        Log::info("OCR Output: " . $output);
-
-        if (!$output) {
+        if (!$response->ok()) {
             return response()->json([
-                'message' => 'OCR processing failed.',
-                'error' => 'No output from OCR script.'
+                'message' => 'OCR failed',
+                'error' => $response->body()
             ], 500);
         }
 
-        $ocrResult = json_decode($output, true);
-        if (!$ocrResult) {
-            return response()->json([
-                'message' => 'Invalid OCR response.',
-                'error' => 'Failed to parse OCR result.'
-            ], 500);
-        }
-
-        Log::info("OCR Result: " . json_encode($ocrResult));
+        $ocrResult = $response->json();
 
         return response()->json([
             'message' => $ocrResult['id_type_matched'] ? 'ID verified successfully' : 'ID mismatch',
             'ocr_text' => $ocrResult['text'],
-            'file_path' => asset("storage/{$path}"), // ✅ Public path for React preview
+            'file_path' => asset("storage/{$path}"),
             'id_verified' => $ocrResult['id_type_matched'],
         ]);
+
     } catch (\Exception $e) {
         Log::error("Upload ID error: " . $e->getMessage());
         return response()->json([
@@ -95,6 +83,7 @@ Route::post('/upload-id', function (Request $request) {
         ], 500);
     }
 });
+
 
 Route::get('/check-reference/{reference_number}', function ($reference_number) {
     return response()->json([
