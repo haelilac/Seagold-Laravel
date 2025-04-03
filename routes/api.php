@@ -42,9 +42,6 @@ Route::post('/validate-receipt', [PaymentController::class, 'validateReceipt']);
 Route::post('/upload-id', function (Request $request) {
     Log::info('Upload ID API called');
 
-    // Add CORS header
-    header('Access-Control-Allow-Origin: *');
-
     try {
         // ✅ Update to match frontend input name
         $validated = $request->validate([
