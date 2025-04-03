@@ -19,14 +19,6 @@ Route::get('/uploads/{folder}/{filename}', function ($folder, $filename) {
     return Response::make($file, 200)->header("Content-Type", $type);
 });
 
-use Illuminate\Support\Facades\Artisan;
-
-Route::get('/run-storage-link', function () {
-    Artisan::call('storage:link');
-    return '✅ Symlink created!';
-});
-
-
 /*
 |--------------------------------------------------------------------------
 | Web Routes
