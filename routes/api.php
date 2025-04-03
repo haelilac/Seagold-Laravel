@@ -42,6 +42,7 @@ Route::post('/validate-receipt', [PaymentController::class, 'validateReceipt']);
 Route::post('/upload-id', function (Request $request) {
     Log::info('Upload ID API called');
 
+    
     try {
         // ✅ Update to match frontend input name
         $validated = $request->validate([
