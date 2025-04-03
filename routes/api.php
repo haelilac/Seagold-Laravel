@@ -42,34 +42,30 @@ Route::post('/validate-receipt', [PaymentController::class, 'validateReceipt']);
 Route::post('/upload-id', function (Request $request) {
     Log::info('Upload ID API called');
 
+    // Add CORS header
+    header('Access-Control-Allow-Origin: *');
+
     try {
-        // Validate input
+        // ✅ Update to match frontend input name
         $validated = $request->validate([
-            'valid_id' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'file' => 'required|image|mimes:jpeg,png,jpg|max:2048',
             'id_type' => 'required|string',
         ]);
 
-        // Store the uploaded ID
-        $path = $request->file('valid_id')->store('uploads', 'public');
+        // ✅ Store file in `public/uploads/valid_ids`
+        $path = $request->file('file')->store('uploads/valid_ids', 'public');
         $imagePath = storage_path("app/public/{$path}");
         $idType = strtolower($validated['id_type']);
 
         Log::info("Stored ID at: $imagePath");
 
-        // Set Python Path
+        // ✅ Use Python OCR
         $pythonPath = "C:\\Users\\shana\\Documents\\dorm-vision\\backend\\.venv\\Scripts\\python.exe";
-        Log::info("Using Python path: $pythonPath");
-
-        // Construct the command
         $command = escapeshellcmd("$pythonPath " . base_path("ocr_script.py") . " $imagePath $idType");
 
-        // ✅ Run Python script with shell_exec()
         $output = shell_exec($command);
-        
-        // Log output for debugging
         Log::info("OCR Output: " . $output);
 
-        // Handle errors
         if (!$output) {
             return response()->json([
                 'message' => 'OCR processing failed.',
@@ -77,9 +73,7 @@ Route::post('/upload-id', function (Request $request) {
             ], 500);
         }
 
-        // Parse the output JSON
         $ocrResult = json_decode($output, true);
-
         if (!$ocrResult) {
             return response()->json([
                 'message' => 'Invalid OCR response.',
@@ -92,14 +86,13 @@ Route::post('/upload-id', function (Request $request) {
         return response()->json([
             'message' => $ocrResult['id_type_matched'] ? 'ID verified successfully' : 'ID mismatch',
             'ocr_text' => $ocrResult['text'],
-            'file_path' => $path,
+            'file_path' => asset("storage/{$path}"), // ✅ Public path for React preview
             'id_verified' => $ocrResult['id_type_matched'],
         ]);
-
     } catch (\Exception $e) {
-        Log::error('Upload ID Error: ' . $e->getMessage());
+        Log::error("Upload ID error: " . $e->getMessage());
         return response()->json([
-            'message' => 'An error occurred during the upload process.',
+            'message' => 'Server error.',
             'error' => $e->getMessage(),
         ], 500);
     }
