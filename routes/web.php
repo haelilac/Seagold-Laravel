@@ -3,6 +3,22 @@
 use Illuminate\Support\Facades\Route;
 use App\Events\MyEvent;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Response;
+
+Route::get('/uploads/{folder}/{filename}', function ($folder, $filename) {
+    $path = "uploads/$folder/$filename";
+
+    if (!Storage::disk('public')->exists($path)) {
+        abort(404);
+    }
+
+    $file = Storage::disk('public')->get($path);
+    $type = Storage::disk('public')->mimeType($path);
+
+    return Response::make($file, 200)->header("Content-Type", $type);
+});
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
