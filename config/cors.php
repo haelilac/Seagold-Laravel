@@ -7,6 +7,7 @@ return [
 
         'allowed_headers' => ['Content-Type', 'X-Requested-With', 'Authorization', 'Accept'],
 
+        
         'allowed_origins' => [
             'https://seagold-dormitory.vercel.app',
             'https://seagold-dormitory.onrender.com',
