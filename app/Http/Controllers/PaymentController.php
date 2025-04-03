@@ -100,7 +100,7 @@ class PaymentController extends Controller
             ->sum('amount');
     
     
-        $remainingBalance = max(0, $unitPrice - ($previousPayments + $request->amount));
+        $remainingBalance = max(0, $unitPrice - $previousPayments);
         $paymentType = ($remainingBalance > 0) ? 'Partially Paid' : 'Fully Paid';
     
         $payment = Payment::create([
