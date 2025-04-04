@@ -5,15 +5,26 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Gallery;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class GalleryController extends Controller
 {
     // Fetch all images
     public function index()
     {
-        $images = Gallery::all();
+        $images = Gallery::all()->map(function ($img) {
+            return [
+                'id' => $img->id,
+                'title' => $img->title,
+                'description' => $img->description,
+                'category' => $img->category,
+                'image_url' => $img->image_path,
+            ];
+        });
+    
         return response()->json(['images' => $images], 200);
     }
+    
     
     // Upload a new image
     public function store(Request $request)
@@ -24,18 +35,21 @@ class GalleryController extends Controller
             'description' => 'nullable|string',
             'category' => 'required|string|max:255',
         ]);
-
-        $imagePath = $request->file('image')->store('gallery', 'public');
-
+    
+        $uploadedFileUrl = Cloudinary::upload($request->file('image')->getRealPath(), [
+            'folder' => 'gallery'
+        ])->getSecurePath();
+    
         $image = Gallery::create([
-            'image_path' => $imagePath,
+            'image_path' => $uploadedFileUrl, // Save Cloudinary URL
             'title' => $validated['title'],
             'description' => $validated['description'],
             'category' => $validated['category'],
         ]);
-
+    
         return response()->json(['message' => 'Image uploaded successfully!', 'image' => $image], 201);
     }
+    
 
     // Update image details
     public function update(Request $request, $id)
