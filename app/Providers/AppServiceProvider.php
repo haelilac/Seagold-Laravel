@@ -17,14 +17,8 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Bootstrap any application services.
      */
-    public function boot()
+    public function boot(): void
     {
-        $folders = ['uploads/valid_ids', 'uploads/gallery', 'uploads/photos', 'uploads/receipts'];
-    
-        foreach ($folders as $folder) {
-            if (!Storage::disk('public')->exists($folder)) {
-                Storage::disk('public')->makeDirectory($folder);
-            }
-        }
+        //
     }
 }
