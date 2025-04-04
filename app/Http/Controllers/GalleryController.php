@@ -10,22 +10,21 @@ use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class GalleryController extends Controller
 {
     // Fetch all images
-    public function index()
-    {
-        $images = Gallery::all()->map(function ($img) {
-            return [
-                'id' => $img->id,
-                'title' => $img->title,
-                'description' => $img->description,
-                'category' => $img->category,
-                'image_url' => $img->image_path,
-            ];
-        });
-    
-        return response()->json(['images' => $images], 200);
-    }
-    
-    
+public function index()
+{
+    $images = Gallery::all()->map(function ($image) {
+        return [
+            'id' => $image->id,
+            'title' => $image->title,
+            'description' => $image->description,
+            'category' => $image->category,
+            'image_url' => $image->image_path, // ✅ Assuming this stores Cloudinary URL
+        ];
+    });
+
+    return response()->json(['images' => $images], 200);
+}
+
     // Upload a new image
     public function store(Request $request)
     {
