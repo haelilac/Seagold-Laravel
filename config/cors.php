@@ -10,7 +10,7 @@ return [
         
         'allowed_origins' => [
             'https://seagold-dormitory.vercel.app',
-            'https://seagold-dormitory.onrender.com',
+            'https://seagold-python-production.up.railway.app',
         ],
 
         'allowed_origins_patterns' => [],
