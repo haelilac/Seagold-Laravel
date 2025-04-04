@@ -51,21 +51,19 @@ Route::post('/upload-id', function (Request $request) {
             'id_type' => 'required|string',
         ]);
 
-        // 🔁 Upload to Cloudinary
+        // ✅ Upload to Cloudinary
         $uploadedFileUrl = Cloudinary::upload($request->file('file')->getRealPath())->getSecurePath();
 
-        Log::info("Cloudinary Upload URL: " . $uploadedFileUrl);
-
-        // 🧠 OCR Call (if applicable)
-        $response = Http::attach('file', file_get_contents($request->file('file')->getRealPath()), $request->file('file')->getClientOriginalName())
-                        ->post(env('RAILWAY_URL') . '/api/ocr-process', [
-                            'id_type' => $request->id_type,
-                        ]);
+        // 🔁 (OPTIONAL) OCR logic here
+        $response = Http::asForm()->post(env('RAILWAY_OCR_URL', 'http://localhost:9090/upload-id/'), [
+            'id_type' => $validated['id_type'],
+            'image_url' => $uploadedFileUrl, // ✅ send Cloudinary link
+        ]);
 
         if (!$response->ok()) {
             return response()->json([
                 'message' => 'OCR failed',
-                'error' => $response->body(),
+                'error' => $response->body()
             ], 500);
         }
 
@@ -74,7 +72,7 @@ Route::post('/upload-id', function (Request $request) {
         return response()->json([
             'message' => $ocrResult['id_type_matched'] ? 'ID verified successfully' : 'ID mismatch',
             'ocr_text' => $ocrResult['text'],
-            'file_path' => $uploadedFileUrl, // ✅ Return Cloudinary URL
+            'file_path' => $uploadedFileUrl, // ✅ Send full Cloudinary URL
             'id_verified' => $ocrResult['id_type_matched'],
         ]);
 
