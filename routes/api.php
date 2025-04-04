@@ -55,10 +55,11 @@ Route::post('/upload-id', function (Request $request) {
         $uploadedFileUrl = Cloudinary::upload($request->file('file')->getRealPath())->getSecurePath();
 
         // 🔁 (OPTIONAL) OCR logic here
-        $response = Http::asForm()->post(env('RAILWAY_OCR_URL', 'http://localhost:9090/upload-id/'), [
+        $response = Http::asForm()->post(env('RAILWAY_OCR_URL', 'https://seagold-python-production.up.railway.app/upload-id/'), [
             'id_type' => $validated['id_type'],
-            'image_url' => $uploadedFileUrl, // ✅ send Cloudinary link
+            'image_url' => $uploadedFileUrl, // ✅ Send the Cloudinary image URL
         ]);
+        
 
         if (!$response->ok()) {
             return response()->json([
