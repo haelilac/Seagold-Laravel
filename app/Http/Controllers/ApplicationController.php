@@ -51,7 +51,7 @@ class ApplicationController extends Controller
             'duration' => 'required|integer',
             'reservation_details' => 'required|string',
             'id_type' => 'required|string',
-            'valid_id' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'valid_id_url' => 'required|string|url',
             'house_number' => 'required|string|max:50',
             'street' => 'required|string|max:100',
             'barangay' => 'required|string|max:100', // Make sure it's expecting a name, not a code
@@ -61,16 +61,7 @@ class ApplicationController extends Controller
         ]);    
     
         // Handle file upload
-        if ($request->hasFile('valid_id')) {
-            $uploadedFileUrl = cloudinary()->upload(
-                $request->file('valid_id')->getRealPath(),
-                [
-                    'folder' => 'valid_ids', // ✅ this auto-creates the folder if not existing
-                ]
-            )->getSecurePath();
-        
-            $validIdPath = $uploadedFileUrl;
-        }
+        $validIdPath = $validated['valid_id_url'];
         // Check if user has already applied
         $existingApplication = Application::where('email', $validated['email'])->first();
 
