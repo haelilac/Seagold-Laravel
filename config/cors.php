@@ -1,5 +1,6 @@
 <?php
 
+
 return [
     'paths' => ['api/*', 'upload-id', 'sanctum/csrf-cookie', '/login-admin-tenant', '/logout'],
     'allowed_methods' => ['*'],
@@ -10,8 +11,7 @@ return [
     'allowed_headers' => ['Content-Type', 'X-Requested-With', 'Authorization', 'Accept'],
     'exposed_headers' => ['Authorization', 'X-CSRF-TOKEN'],
     'max_age' => 0,
-
-        'supports_credentials' => true,
+    'supports_credentials' => true, // ⚠️ Set to false unless you use cookies/token-based auth
 ];
 
 
