@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\Application;
 use App\Models\User;
 use App\Models\Unit;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class ApplicationController extends Controller
 {
     // Fetch all pending applications
@@ -60,9 +61,15 @@ class ApplicationController extends Controller
         ]);    
     
         // Handle file upload
-        $validIdPath = null;
         if ($request->hasFile('valid_id')) {
-            $validIdPath = $request->file('valid_id')->store('uploads/valid_ids', 'public');
+            $uploadedFileUrl = cloudinary()->upload(
+                $request->file('valid_id')->getRealPath(),
+                [
+                    'folder' => 'valid_ids', // ✅ this auto-creates the folder if not existing
+                ]
+            )->getSecurePath();
+        
+            $validIdPath = $uploadedFileUrl;
         }
         // Check if user has already applied
         $existingApplication = Application::where('email', $validated['email'])->first();
