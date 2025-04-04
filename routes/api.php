@@ -51,7 +51,7 @@ Route::post('/upload-id', function (Request $request) {
         ]);
 
         $path = $request->file('file')->store('uploads/valid_ids', 'public');
-        Log::info("Uploaded valid ID saved at: " . storage_path("app/public/{$path}"));
+        Log::info("Uploaded valid ID saved at: " . storage_path("app/public/{$path}")); 
         $imagePath = storage_path("app/public/{$path}");
         $idType = strtolower($validated['id_type']);
 
