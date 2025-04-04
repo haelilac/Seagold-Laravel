@@ -26,6 +26,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\LocationController;
 use Illuminate\Support\Facades\Http;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+
 
 Route::get('/test', function () {
     return response()->json(['status' => 'Laravel Backend is Working!']);
@@ -43,28 +45,27 @@ Route::post('/validate-receipt', [PaymentController::class, 'validateReceipt']);
 Route::post('/upload-id', function (Request $request) {
     Log::info('Upload ID API called');
 
-
     try {
         $validated = $request->validate([
             'file' => 'required|image|mimes:jpeg,png,jpg|max:2048',
             'id_type' => 'required|string',
         ]);
 
-        $path = $request->file('file')->store('uploads/valid_ids', 'public');
-        Log::info("Uploaded valid ID saved at: " . storage_path("app/public/{$path}")); 
-        $imagePath = storage_path("app/public/{$path}");
-        $idType = strtolower($validated['id_type']);
+        // 🔁 Upload to Cloudinary
+        $uploadedFileUrl = Cloudinary::upload($request->file('file')->getRealPath())->getSecurePath();
 
-        $response = Http::attach(
-            'file', file_get_contents($imagePath), basename($path)
-        )->post("https://seagold-python-production.up.railway.app/upload-id/", [
-            'id_type' => $idType
-        ]);
+        Log::info("Cloudinary Upload URL: " . $uploadedFileUrl);
+
+        // 🧠 OCR Call (if applicable)
+        $response = Http::attach('file', file_get_contents($request->file('file')->getRealPath()), $request->file('file')->getClientOriginalName())
+                        ->post(env('RAILWAY_URL') . '/api/ocr-process', [
+                            'id_type' => $request->id_type,
+                        ]);
 
         if (!$response->ok()) {
             return response()->json([
                 'message' => 'OCR failed',
-                'error' => $response->body()
+                'error' => $response->body(),
             ], 500);
         }
 
@@ -73,7 +74,7 @@ Route::post('/upload-id', function (Request $request) {
         return response()->json([
             'message' => $ocrResult['id_type_matched'] ? 'ID verified successfully' : 'ID mismatch',
             'ocr_text' => $ocrResult['text'],
-            'file_path' => url("/view-file/valid_ids/" . basename($path)),
+            'file_path' => $uploadedFileUrl, // ✅ Return Cloudinary URL
             'id_verified' => $ocrResult['id_type_matched'],
         ]);
 
