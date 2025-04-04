@@ -53,13 +53,13 @@ Route::post('/upload-id', function (Request $request) {
 
         // ✅ Upload to Cloudinary
         $uploadedFileUrl = Cloudinary::upload($request->file('file')->getRealPath())->getSecurePath();
+        Log::info("Uploaded to Cloudinary: " . $uploadedFileUrl);
 
-        // 🔁 (OPTIONAL) OCR logic here
+        // ✅ Call OCR API using Cloudinary URL
         $response = Http::asForm()->post(env('RAILWAY_OCR_URL', 'https://seagold-python-production.up.railway.app/upload-id/'), [
             'id_type' => $validated['id_type'],
-            'image_url' => $uploadedFileUrl, // ✅ Send the Cloudinary image URL
+            'image_url' => $uploadedFileUrl,
         ]);
-        
 
         if (!$response->ok()) {
             return response()->json([
@@ -73,10 +73,9 @@ Route::post('/upload-id', function (Request $request) {
         return response()->json([
             'message' => $ocrResult['id_type_matched'] ? 'ID verified successfully' : 'ID mismatch',
             'ocr_text' => $ocrResult['text'],
-            'file_path' => $uploadedFileUrl, // ✅ Send full Cloudinary URL
+            'file_path' => $uploadedFileUrl, // Cloudinary link returned
             'id_verified' => $ocrResult['id_type_matched'],
         ]);
-
     } catch (\Exception $e) {
         Log::error("Upload ID error: " . $e->getMessage());
         return response()->json([
@@ -85,7 +84,6 @@ Route::post('/upload-id', function (Request $request) {
         ], 500);
     }
 });
-
 
 
 Route::get('/check-reference/{reference_number}', function ($reference_number) {
