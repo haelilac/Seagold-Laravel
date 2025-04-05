@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log; // For debugging purposes
 use App\Models\Notification;
 use App\Models\User;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+
 class MaintenanceRequestController extends Controller
 {
     // Store a new maintenance requestuse App\Models\Notification; // Import Notification model
@@ -16,7 +18,7 @@ class MaintenanceRequestController extends Controller
         $validated = $request->validate([
             'user_id' => 'required|integer|exists:users,id',
             'description' => 'required|string',
-            'status' => 'required|string|in:pending,in_progress,completed,rejected',
+            'status' => 'nullable|string|in:pending,in_progress,completed,rejected',
             'file' => 'nullable|file|mimes:jpg,jpeg,png,mp4|max:20480',
             'schedule' => 'nullable|date_format:Y-m-d H:i:s',
         ]);
@@ -25,16 +27,22 @@ class MaintenanceRequestController extends Controller
     
         // Handle file upload
         if ($request->hasFile('file')) {
-            $filePath = $request->file('file')->store('maintenance_uploads', 'public');
-            $filePath = str_replace('public/', 'storage/', $filePath);
+            $upload = Cloudinary::upload($request->file('file')->getRealPath(), [
+                'folder' => 'maintenance_reports',
+                'resource_type' => 'auto'
+            ]);
+            
+            $filePath = $upload->getSecurePath(); // ✅ full URL for preview
+            $publicId = $upload->getPublicId();   // ✅ needed for deletion
         }
-    
+
         // Create maintenance request
         $maintenanceRequest = MaintenanceRequest::create([
             'user_id' => $validated['user_id'],
             'description' => $validated['description'],
-            'status' => $validated['status'],
+            'status' => $validated['status'] ?? 'pending',
             'file_path' => $filePath,
+            'cloudinary_public_id' => $publicId,
             'schedule' => $validated['schedule'] ?? null,
         ]);
     
@@ -196,15 +204,14 @@ class MaintenanceRequestController extends Controller
         }
     
         // Delete the file if it exists
-        if ($maintenanceRequest->file_path) {
-            $filePath = str_replace('storage/', 'public/', $maintenanceRequest->file_path);
-            if (Storage::exists($filePath)) {
-                Storage::delete($filePath);
-                Log::info("Deleted file: " . $filePath);
-            } else {
-                Log::warning("File not found for deletion: " . $filePath);
+        if ($maintenanceRequest->cloudinary_public_id) {
+            try {
+                Cloudinary::destroy($maintenanceRequest->cloudinary_public_id);
+            } catch (\Exception $e) {
+                \Log::error("Cloudinary delete error: " . $e->getMessage());
             }
         }
+        
     
         // Delete the maintenance request
         $maintenanceRequest->delete();

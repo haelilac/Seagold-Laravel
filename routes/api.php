@@ -25,6 +25,13 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\LocationController;
+use Illuminate\Support\Facades\Http;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\Auth\ResetPasswordController;
+
+Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
+Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
 
 Route::get('/test', function () {
     return response()->json(['status' => 'Laravel Backend is Working!']);
@@ -43,67 +50,45 @@ Route::post('/upload-id', function (Request $request) {
     Log::info('Upload ID API called');
 
     try {
-        // Validate input
         $validated = $request->validate([
-            'valid_id' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'file' => 'required|image|mimes:jpeg,png,jpg|max:2048',
             'id_type' => 'required|string',
         ]);
 
-        // Store the uploaded ID
-        $path = $request->file('valid_id')->store('uploads', 'public');
-        $imagePath = storage_path("app/public/{$path}");
-        $idType = strtolower($validated['id_type']);
+        // ✅ Upload to Cloudinary
+        $uploadedFileUrl = Cloudinary::upload($request->file('file')->getRealPath())->getSecurePath();
+        Log::info("Uploaded to Cloudinary: " . $uploadedFileUrl);
 
-        Log::info("Stored ID at: $imagePath");
+        // ✅ Call OCR API using Cloudinary URL
+        $response = Http::asForm()->post(env('RAILWAY_OCR_URL', 'https://seagold-python-production.up.railway.app/upload-id/'), [
+            'id_type' => $validated['id_type'],
+            'image_url' => $uploadedFileUrl,
+        ]);
 
-        // Set Python Path
-        $pythonPath = "C:\\Users\\shana\\Documents\\dorm-vision\\backend\\.venv\\Scripts\\python.exe";
-        Log::info("Using Python path: $pythonPath");
-
-        // Construct the command
-        $command = escapeshellcmd("$pythonPath " . base_path("ocr_script.py") . " $imagePath $idType");
-
-        // ✅ Run Python script with shell_exec()
-        $output = shell_exec($command);
-        
-        // Log output for debugging
-        Log::info("OCR Output: " . $output);
-
-        // Handle errors
-        if (!$output) {
+        if (!$response->ok()) {
             return response()->json([
-                'message' => 'OCR processing failed.',
-                'error' => 'No output from OCR script.'
+                'message' => 'OCR failed',
+                'error' => $response->body()
             ], 500);
         }
 
-        // Parse the output JSON
-        $ocrResult = json_decode($output, true);
-
-        if (!$ocrResult) {
-            return response()->json([
-                'message' => 'Invalid OCR response.',
-                'error' => 'Failed to parse OCR result.'
-            ], 500);
-        }
-
-        Log::info("OCR Result: " . json_encode($ocrResult));
+        $ocrResult = $response->json();
 
         return response()->json([
             'message' => $ocrResult['id_type_matched'] ? 'ID verified successfully' : 'ID mismatch',
             'ocr_text' => $ocrResult['text'],
-            'file_path' => $path,
+            'file_path' => $uploadedFileUrl, // Cloudinary link returned
             'id_verified' => $ocrResult['id_type_matched'],
         ]);
-
     } catch (\Exception $e) {
-        Log::error('Upload ID Error: ' . $e->getMessage());
+        Log::error("Upload ID error: " . $e->getMessage());
         return response()->json([
-            'message' => 'An error occurred during the upload process.',
+            'message' => 'Server error.',
             'error' => $e->getMessage(),
         ], 500);
     }
 });
+
 
 Route::get('/check-reference/{reference_number}', function ($reference_number) {
     return response()->json([

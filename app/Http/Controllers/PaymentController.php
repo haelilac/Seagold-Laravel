@@ -95,10 +95,12 @@ class PaymentController extends Controller
     
         $unitPrice = $user->unit ? $user->unit->price : 0;
         $previousPayments = Payment::where('user_id', $user->id)
-                                    ->where('payment_period', $request->payment_for)
-                                    ->sum('amount');
+            ->where('payment_period', $request->payment_for)
+            ->where('status', 'Confirmed') // ✅ only subtract confirmed
+            ->sum('amount');
     
-        $remainingBalance = max(0, $unitPrice - ($previousPayments + $request->amount));
+    
+        $remainingBalance = max(0, $unitPrice - $previousPayments);
         $paymentType = ($remainingBalance > 0) ? 'Partially Paid' : 'Fully Paid';
     
         $payment = Payment::create([
@@ -281,7 +283,7 @@ public function updateStatus($user_id)
                     'payment_type' => $payment->payment_type,
                     'payment_method' => $payment->payment_method,
                     'reference_number' => $payment->reference_number,
-                    'payment_period' => $payment->payment_period,
+                    'payment_period' => Carbon::parse($payment->payment_period)->toDateString(),
                     'remaining_balance' => $payment->remaining_balance,
                     'submitted_at' => $payment->created_at->toDateString(),
                     'status' => $payment->status,

@@ -3,6 +3,10 @@
 use Illuminate\Support\Facades\Route;
 use App\Events\MyEvent;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Response;
+
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes

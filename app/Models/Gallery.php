@@ -9,6 +9,12 @@ class Gallery extends Model
 {
     use HasFactory;
 
+    protected $appends = ['image_url'];
+
+public function getImageUrlAttribute()
+{
+    return $this->image_path;
+}
     protected $table = 'gallery';
     protected $fillable = [
         'image_path',

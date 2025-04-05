@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\Application;
 use App\Models\User;
 use App\Models\Unit;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class ApplicationController extends Controller
 {
     // Fetch all pending applications
@@ -50,7 +51,7 @@ class ApplicationController extends Controller
             'duration' => 'required|integer',
             'reservation_details' => 'required|string',
             'id_type' => 'required|string',
-            'valid_id' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'valid_id_url' => 'required|string|url',
             'house_number' => 'required|string|max:50',
             'street' => 'required|string|max:100',
             'barangay' => 'required|string|max:100', // Make sure it's expecting a name, not a code
@@ -60,10 +61,7 @@ class ApplicationController extends Controller
         ]);    
     
         // Handle file upload
-        $validIdPath = null;
-        if ($request->hasFile('valid_id')) {
-            $validIdPath = $request->file('valid_id')->store('uploads/valid_ids', 'public');
-        }
+        $validIdPath = $validated['valid_id_url'];
         // Check if user has already applied
         $existingApplication = Application::where('email', $validated['email'])->first();
 
@@ -188,26 +186,19 @@ public function accept(Request $request, $id)
     }
 }
 
-
 public function update(Request $request, $id)
 {
-    $request->validate([
-        'price_option' => 'required|in:unit,custom',
-        'set_price' => 'nullable|numeric|min:0',
-    ]);
-
     $application = Application::findOrFail($id);
 
-    // Save set_price based on the selected option
-    if ($request->price_option === 'custom') {
-        $application->set_price = $request->set_price;
-    } else {
-        $application->set_price = null;
-    }
+    // Update fields from formData
+    $application->duration = $request->duration;
+    $application->reservation_details = $request->reservation_details;
+    $application->set_price = $request->set_price;
 
     $application->save();
 
-    return redirect()->route('applications.index')->with('success', 'Application updated successfully.');
+    return response()->json(['message' => 'Application updated successfully.']);
 }
+
 
 }
