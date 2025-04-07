@@ -243,10 +243,6 @@ Route::post('/login-guest', [AuthController::class, 'loginGuest'])->middleware('
 Route::post('/login-admin-tenant', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
-
-Route::middleware('auth:sanctum')->get('/auth/user', function (Request $request) {
-    return response()->json($request->user());
-});
 // Tenant Routes
 Route::middleware(['auth:sanctum', 'role:tenant'])->group(function () {
     Route::get('/tenant/dashboard', [TenantController::class, 'index']); // Tenant Dashboard
@@ -254,10 +250,6 @@ Route::middleware(['auth:sanctum', 'role:tenant'])->group(function () {
 // Tenant Route to get assigned unit
 Route::middleware(['auth:sanctum', 'role:tenant'])->group(function () {
     Route::get('/tenant/unit', [TenantController::class, 'getAssignedUnit']);
-});
-// Authenticated User Route
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
 });
 
 // Fetch the authenticated user's details
