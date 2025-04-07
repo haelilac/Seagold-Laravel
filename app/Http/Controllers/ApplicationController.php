@@ -31,6 +31,18 @@ class ApplicationController extends Controller
         ]);
     }
     
+    public function getRoomPricing(Request $request)
+{
+    $unitCode = $request->query('unit_code');
+    $stayType = $request->query('stay_type');
+
+    $pricing = DB::table('room_pricings')
+        ->where('unit_code', $unitCode)
+        ->where('stay_type', $stayType)
+        ->get();
+
+    return response()->json($pricing);
+}
 
     // Save a new application
     public function store(Request $request)
@@ -49,6 +61,8 @@ class ApplicationController extends Controller
             'occupation' => 'required|string|max:100',
             'check_in_date' => 'required|date',
             'duration' => 'required|integer',
+            'set_price' => 'nullable|numeric',
+            'stay_type' => 'required|in:daily,weekly,half-month,monthly',
             'reservation_details' => 'required|string',
             'id_type' => 'required|string',
             'valid_id_url' => 'required|string|url',
@@ -80,8 +94,18 @@ class ApplicationController extends Controller
     
         // Auto-set status and set_price based on unit
         $status = 'pending'; // Default status for new applications
-        $setPrice = $unit->price; // Auto-fetch the unit price
-    
+
+        $tenantCount = User::where('unit_id', $unit->id)->count() + 1; // +1 to include current applicant
+
+        $pricing = \DB::table('room_pricings')
+            ->where('unit_code', $validated['reservation_details'])
+            ->where('stay_type', $validated['stay_type'])
+            ->where('min_capacity', '<=', $tenantCount)
+            ->where('max_capacity', '>=', $tenantCount)
+            ->first();
+        
+        // Fallback to unit price if not found
+        $setPrice = $validated['set_price'] ?? ($pricing->price ?? $unit->price);
         // Create the application
         $application = Application::create([
             'first_name' => $validated['first_name'],
@@ -99,6 +123,7 @@ class ApplicationController extends Controller
             'id_type' => $validated['id_type'],
             'valid_id' => $validIdPath,
             'status' => $status,
+            'stay_type' => $validated['stay_type'],
             'set_price' => $setPrice,
             'house_number' => $validated['house_number'],
             'street' => $validated['street'],

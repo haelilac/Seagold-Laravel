@@ -441,6 +441,18 @@ public function updateStatus($user_id)
                 $currentMonth = $startDate->copy()->addMonths($i)->format('Y-m-d');
                 $months[] = $currentMonth;
             }
+            
+            $intervalDays = match($application->stay_type) {
+                'daily' => 1,
+                'weekly' => 7,
+                'half-month' => 15,
+                'monthly' => 30,
+            };
+
+            for ($i = 0; $i < $application->duration; $i++) {
+                $paymentDate = $startDate->copy()->addDays($i * $intervalDays)->format('Y-m-d');
+                $months[] = $paymentDate;
+            }
     
             // Calculate the unpaid balances for each month
             $totalPaidPerMonth = [];

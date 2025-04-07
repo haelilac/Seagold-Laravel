@@ -279,3 +279,6 @@ Route::get('/run-contract-check', function () {
         'message' => 'Contract ending check triggered.',
     ]);
 });
+
+Route::get('/room-pricing', [ApplicationController::class, 'getRoomPricing']);
+Route::get('/pricing-brackets', [\App\Http\Controllers\RoomPricingController::class, 'getBrackets']);
