@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\RoomPricing;
 
 class RoomPricingController extends Controller
 {
@@ -23,5 +24,11 @@ class RoomPricingController extends Controller
             ->get();
 
         return response()->json($brackets);
+    }
+
+        public function getRoomPricing($unitCode)
+    {
+        $pricings = RoomPricing::where('unit_code', $unitCode)->get();
+        return response()->json($pricings);
     }
 }
