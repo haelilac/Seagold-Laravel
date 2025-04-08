@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\Unit; // <-- Import the Unit model
 use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class UnitController extends Controller
 {
@@ -34,6 +35,27 @@ class UnitController extends Controller
          ]);
      }
      
+     public function getRoomPricingByUnit($unitCode)
+{
+    $pricing = DB::table('room_pricings')
+        ->where('unit_code', $unitCode)
+        ->get();
+
+    return response()->json($pricing);
+}
+
+    public function getRoomPricing(Request $request)
+    {
+        $unitCode = $request->query('unit_code');
+        $stayType = $request->query('stay_type');
+
+        $pricing = DB::table('room_pricings')
+            ->where('unit_code', $unitCode)
+            ->where('stay_type', $stayType)
+            ->get();
+
+        return response()->json($pricing);
+    }
      public function availableUnits()
 {
     $units = Unit::where('status', 'available')->get();

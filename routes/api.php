@@ -280,6 +280,5 @@ Route::get('/run-contract-check', function () {
     ]);
 });
 
-Route::get('/room-pricing', [ApplicationController::class, 'getRoomPricing']);
-Route::get('/pricing-brackets', [\App\Http\Controllers\RoomPricingController::class, 'getBrackets']);
-Route::get('/room-pricing/{unit_code}', [UnitController::class, 'getRoomPricing']);
+Route::get('/room-pricing', [UnitController::class, 'getRoomPricing']);
+Route::get('/room-pricing/{unit_code}', [UnitController::class, 'getRoomPricingByUnit']);

@@ -30,19 +30,7 @@ class ApplicationController extends Controller
             'units' => $units,
         ]);
     }
-    
-    public function getRoomPricing(Request $request)
-{
-    $unitCode = $request->query('unit_code');
-    $stayType = $request->query('stay_type');
 
-    $pricing = DB::table('room_pricings')
-        ->where('unit_code', $unitCode)
-        ->where('stay_type', $stayType)
-        ->get();
-
-    return response()->json($pricing);
-}
 
     // Save a new application
     public function store(Request $request)
