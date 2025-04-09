@@ -91,29 +91,15 @@ public function updateStatus(Request $request, $id)
 
 public function index()
 {
-    $roomPricings = \DB::table('room_pricings')
-        ->select('unit_code', \DB::raw('MAX(capacity) as capacity'), \DB::raw('MAX(price) as price'))
+    // Fetch distinct units by unit_code to prevent duplicates
+    $uniqueUnits = Unit::select('unit_code', DB::raw('MIN(id) as id'))
         ->groupBy('unit_code')
+        ->get()
+        ->pluck('id');
+
+    $units = Unit::withCount('users')
+        ->whereIn('id', $uniqueUnits)
         ->get();
-
-    $units = [];
-
-    foreach ($roomPricings as $item) {
-        $unit = \App\Models\Unit::where('unit_code', $item->unit_code)->first();
-
-        // Skip if no matching unit record (avoid null errors)
-        if (!$unit) continue;
-
-        $units[] = [
-            'id' => $unit->id,
-            'unit_code' => $item->unit_code,
-            'name' => $unit->name,
-            'capacity' => $item->capacity,
-            'price' => $item->price,
-            'users_count' => $unit->users()->count(),
-            'status' => $unit->status,
-        ];
-    }
 
     return response()->json($units);
 }
