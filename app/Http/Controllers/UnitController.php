@@ -67,8 +67,20 @@ public function updateStatus(Request $request, $id)
 public function index()
 {
     return response()->json([
-        ['unit_code' => 'Room 1', 'name' => 'Room 1', 'max_capacity' => 3, 'total_users_count' => 1],
-        ['unit_code' => 'Room 2', 'name' => 'Room 2', 'max_capacity' => 2, 'total_users_count' => 0],
+        [
+            'unit_code' => 'Room 1',
+            'name' => 'Room 1',
+            'max_capacity' => 3,
+            'total_users_count' => 1,
+            'status' => 'available'
+        ],
+        [
+            'unit_code' => 'Room 2',
+            'name' => 'Room 2',
+            'max_capacity' => 2,
+            'total_users_count' => 0,
+            'status' => 'available'
+        ],
     ]);
 }
 
