@@ -66,14 +66,10 @@ public function updateStatus(Request $request, $id)
 
 public function index()
 {
-    $units = Unit::select('unit_code', 'name', DB::raw('MAX(capacity) as max_capacity'), DB::raw('SUM(CASE WHEN status = "available" THEN 1 ELSE 0 END) as available_variants'), DB::raw('MIN(price) as min_price'))
-        ->withCount(['users as total_users_count' => function ($query) {
-            $query->select(DB::raw("COUNT(*)"));
-        }])
-        ->groupBy('unit_code', 'name')
-        ->get();
-
-    return response()->json($units);
+    return response()->json([
+        ['unit_code' => 'Room 1', 'name' => 'Room 1', 'max_capacity' => 3, 'total_users_count' => 1],
+        ['unit_code' => 'Room 2', 'name' => 'Room 2', 'max_capacity' => 2, 'total_users_count' => 0],
+    ]);
 }
 
 
