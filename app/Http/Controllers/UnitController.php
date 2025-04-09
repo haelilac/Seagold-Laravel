@@ -91,10 +91,31 @@ public function updateStatus(Request $request, $id)
 
 public function index()
 {
-    $units = Unit::withCount('users')->get();
+    $units = \DB::table('room_pricings')
+        ->select('unit_code', \DB::raw('MAX(capacity) as capacity'), \DB::raw('MAX(price) as price'))
+        ->groupBy('unit_code')
+        ->get()
+        ->map(function ($item) {
+            $unit = \App\Models\Unit::where('unit_code', $item->unit_code)->first();
+            $usersCount = $unit ? $unit->users()->count() : 0;
+            $status = $unit ? $unit->status : 'unavailable';
+            $id = $unit ? $unit->id : null;
+            $name = $unit ? $unit->name : 'N/A';
+
+            return [
+                'id' => $id,
+                'unit_code' => $item->unit_code,
+                'name' => $name,
+                'capacity' => $item->capacity,
+                'price' => $item->price,
+                'users_count' => $usersCount,
+                'status' => $status,
+            ];
+        });
 
     return response()->json($units);
 }
+
 
 public function users()
 {
@@ -115,7 +136,7 @@ public function users()
             'name' => 'required|string|max:255',
             'capacity' => 'required|integer',
             'price' => 'required|numeric',
-            'stay_type' => 'required|string|in:short-term,long-term', // Ensure stay_type is included
+            'stay_type' => 'required|string|in:daily,weekly,half-month,monthly',
         ]);
     
         // Insert into database
