@@ -42,4 +42,11 @@ class Unit extends Model
     {
         return $this->status === 'available' && $this->users()->count() < $this->capacity;
     }
+    public function acceptedApplications()
+    {
+        return $this->hasMany(Application::class, 'reservation_details', 'unit_code')
+                    ->where('status', 'Accepted');
+    }
+    
 }
+

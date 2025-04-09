@@ -91,13 +91,15 @@ public function updateStatus(Request $request, $id)
 
 public function index()
 {
-    $units = Unit::withCount(['applications as users_count' => function ($query) {
-        $query->where('status', 'Accepted');
-    }])->get();
+    $units = Unit::withCount('users')->get();
+
     return response()->json($units);
 }
 
-
+public function users()
+{
+    return $this->hasMany(User::class, 'unit_id');
+}
 
     /**
      * Store a newly created unit in storage.
