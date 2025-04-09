@@ -70,7 +70,7 @@ public function index()
     ->select(
         DB::raw('MIN(id) as id'),
         'unit_code',
-        DB::raw('MAX(capacity) as max_capacity'),
+        DB::raw('MAX(max_capacity) as max_capacity'),
         DB::raw('MIN(price) as min_price'),
         DB::raw('MAX(price) as max_price'),
         DB::raw('GROUP_CONCAT(DISTINCT stay_type) as stay_types'),
