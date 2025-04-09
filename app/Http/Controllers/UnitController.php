@@ -35,27 +35,6 @@ class UnitController extends Controller
          ]);
      }
      
-     public function getRoomPricingByUnit($unitCode)
-{
-    $pricing = DB::table('room_pricings')
-        ->where('unit_code', $unitCode)
-        ->get();
-
-    return response()->json($pricing);
-}
-
-    public function getRoomPricing(Request $request)
-    {
-        $unitCode = $request->query('unit_code');
-        $stayType = $request->query('stay_type');
-
-        $pricing = DB::table('room_pricings')
-            ->where('unit_code', $unitCode)
-            ->where('stay_type', $stayType)
-            ->get();
-
-        return response()->json($pricing);
-    }
      public function availableUnits()
 {
     $units = Unit::where('status', 'available')->get();
@@ -64,30 +43,26 @@ class UnitController extends Controller
 
 public function updateUnitStatus(Request $request, $id)
 {
-    $unit = Unit::findOrFail($id);
-
     $validated = $request->validate([
         'status' => 'required|in:available,unavailable',
     ]);
 
-    $unit->status = $validated['status'];
-    $unit->save();
+    $unit = Unit::findOrFail($id);
+    $unitCode = $unit->unit_code;
 
-    return response()->json(['message' => 'Unit status updated successfully.', 'unit' => $unit]);
+    // Update all units with the same unit_code
+    Unit::where('unit_code', $unitCode)->update(['status' => $validated['status']]);
+
+    return response()->json([
+        'message' => "Status updated for all units with code {$unitCode}.",
+    ]);
 }
 
 public function updateStatus(Request $request, $id)
 {
-    $unit = Unit::findOrFail($id);
-    $validated = $request->validate([
-        'status' => 'required|in:available,unavailable',
-    ]);
-
-    $unit->status = $validated['status'];
-    $unit->save();
-
-    return response()->json(['message' => 'Unit status updated successfully.', 'unit' => $unit]);
+    return $this->updateUnitStatus($request, $id); // reuse the same logic
 }
+
 
 public function index()
 {
