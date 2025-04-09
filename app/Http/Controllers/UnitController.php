@@ -66,14 +66,11 @@ public function updateStatus(Request $request, $id)
 
 public function index()
 {
-    // Fetch distinct units by unit_code to prevent duplicates
-    $uniqueUnits = Unit::select('unit_code', DB::raw('MIN(id) as id'))
-        ->groupBy('unit_code')
-        ->get()
-        ->pluck('id');
-
-    $units = Unit::withCount('users')
-        ->whereIn('id', $uniqueUnits)
+    $units = Unit::select('unit_code', 'name', DB::raw('MAX(capacity) as max_capacity'), DB::raw('SUM(CASE WHEN status = "available" THEN 1 ELSE 0 END) as available_variants'), DB::raw('MIN(price) as min_price'))
+        ->withCount(['users as total_users_count' => function ($query) {
+            $query->select(DB::raw("COUNT(*)"));
+        }])
+        ->groupBy('unit_code', 'name')
         ->get();
 
     return response()->json($units);
