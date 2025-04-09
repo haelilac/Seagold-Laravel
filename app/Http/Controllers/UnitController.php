@@ -67,15 +67,16 @@ public function updateStatus(Request $request, $id)
 public function index()
 {
     $unitGroups = DB::table('units')
-        ->select(
-            DB::raw('MIN(id) as id'),
-            'unit_code',
-            DB::raw('MAX(capacity) as max_capacity'),
-            DB::raw('MIN(price) as min_price'),
-            DB::raw('MAX(price) as max_price'),
-            DB::raw('GROUP_CONCAT(DISTINCT stay_type) as stay_types'),
-            DB::raw('GROUP_CONCAT(DISTINCT status) as statuses')
-        )
+    ->select(
+        DB::raw('MIN(id) as id'),
+        'unit_code',
+        DB::raw('MAX(capacity) as max_capacity'),
+        DB::raw('MIN(price) as min_price'),
+        DB::raw('MAX(price) as max_price'),
+        DB::raw('GROUP_CONCAT(DISTINCT stay_type) as stay_types'),
+        DB::raw('GROUP_CONCAT(status) as statuses'),
+        DB::raw("IF(SUM(status = 'available') > 0, 'available', 'unavailable') as overall_status")
+    )
         ->groupBy('unit_code')
         ->get();
 
