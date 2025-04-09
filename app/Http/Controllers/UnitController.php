@@ -72,6 +72,7 @@ public function index()
             'name' => 'Room 1',
             'max_capacity' => 3,
             'total_users_count' => 1,
+            'stay_type' => 'monthly',
             'status' => 'available'
         ],
         [
@@ -79,6 +80,7 @@ public function index()
             'name' => 'Room 2',
             'max_capacity' => 2,
             'total_users_count' => 0,
+            'stay_type' => 'half month',
             'status' => 'available'
         ],
     ]);
