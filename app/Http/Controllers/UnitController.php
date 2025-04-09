@@ -91,27 +91,29 @@ public function updateStatus(Request $request, $id)
 
 public function index()
 {
-    $units = \DB::table('room_pricings')
+    $roomPricings = \DB::table('room_pricings')
         ->select('unit_code', \DB::raw('MAX(capacity) as capacity'), \DB::raw('MAX(price) as price'))
         ->groupBy('unit_code')
-        ->get()
-        ->map(function ($item) {
-            $unit = \App\Models\Unit::where('unit_code', $item->unit_code)->first();
-            $usersCount = $unit ? $unit->users()->count() : 0;
-            $status = $unit ? $unit->status : 'unavailable';
-            $id = $unit ? $unit->id : null;
-            $name = $unit ? $unit->name : 'N/A';
+        ->get();
 
-            return [
-                'id' => $id,
-                'unit_code' => $item->unit_code,
-                'name' => $name,
-                'capacity' => $item->capacity,
-                'price' => $item->price,
-                'users_count' => $usersCount,
-                'status' => $status,
-            ];
-        });
+    $units = [];
+
+    foreach ($roomPricings as $item) {
+        $unit = \App\Models\Unit::where('unit_code', $item->unit_code)->first();
+
+        // Skip if no matching unit record (avoid null errors)
+        if (!$unit) continue;
+
+        $units[] = [
+            'id' => $unit->id,
+            'unit_code' => $item->unit_code,
+            'name' => $unit->name,
+            'capacity' => $item->capacity,
+            'price' => $item->price,
+            'users_count' => $unit->users()->count(),
+            'status' => $unit->status,
+        ];
+    }
 
     return response()->json($units);
 }
