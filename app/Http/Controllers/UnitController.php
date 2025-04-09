@@ -66,27 +66,45 @@ public function updateStatus(Request $request, $id)
 
 public function index()
 {
-    $units = DB::table('units')
+    $unitGroups = DB::table('units')
         ->select(
+            DB::raw('MIN(id) as id'),
             'unit_code',
-            DB::raw('MAX(max_capacity) as max_capacity'),
+            DB::raw('MAX(capacity) as max_capacity'),
             DB::raw('MIN(price) as min_price'),
             DB::raw('MAX(price) as max_price'),
             DB::raw('GROUP_CONCAT(DISTINCT stay_type) as stay_types'),
             DB::raw('GROUP_CONCAT(DISTINCT status) as statuses')
         )
         ->groupBy('unit_code')
-        ->get()
-        ->map(function ($unit) {
-            $unit->total_users_count = DB::table('users')->whereIn('unit_id', function ($query) use ($unit) {
-                $query->select('id')
-                      ->from('units')
-                      ->where('unit_code', $unit->unit_code);
-            })->count();
-            return $unit;
-        });
+        ->get();
 
-    return response()->json($units);
+    // Map through each unit_code group to compute additional data
+    $unitGroups = $unitGroups->map(function ($unit) {
+        // Count only monthly tenants for this unit_code
+        $monthly_users_count = DB::table('users')
+            ->whereIn('unit_id', function ($query) use ($unit) {
+                $query->select('id')
+                    ->from('units')
+                    ->where('unit_code', $unit->unit_code)
+                    ->where('stay_type', 'monthly'); // Only monthly
+            })->count();
+
+        // Determine base price (price with matching capacity)
+        $base_unit = DB::table('units')
+            ->where('unit_code', $unit->unit_code)
+            ->where('stay_type', 'monthly')
+            ->where('capacity', '>=', $monthly_users_count)
+            ->orderBy('capacity') // Get the closest match
+            ->first();
+
+        $unit->monthly_users_count = $monthly_users_count;
+        $unit->base_price = $base_unit ? $base_unit->price : null;
+
+        return $unit;
+    });
+
+    return response()->json($unitGroups);
 }
 
 public function getUnitsByCode($unit_code)
