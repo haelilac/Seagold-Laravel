@@ -281,6 +281,7 @@ Route::get('/run-contract-check', function () {
 });
 
 Route::get('/units', [UnitController::class, 'index']);
+Route::get('/units/by-code/{unit_code}', [UnitController::class, 'getUnitsByCode']);
 
 
 Route::get('/room-pricing', [UnitController::class, 'getRoomPricing']);

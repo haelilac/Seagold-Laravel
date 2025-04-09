@@ -89,6 +89,11 @@ public function index()
     return response()->json($units);
 }
 
+public function getUnitsByCode($unit_code)
+{
+    $units = Unit::where('unit_code', $unit_code)->get();
+    return response()->json($units);
+}
 
 
 public function users()
