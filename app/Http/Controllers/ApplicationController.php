@@ -31,6 +31,20 @@ class ApplicationController extends Controller
         ]);
     }
 
+    public function getUnits()
+{
+    try {
+        $units = Unit::select('id', 'name', 'unit_code', 'capacity', 'price', 'status')
+                     ->withCount('users')
+                     ->get();
+
+        return response()->json($units);
+    } catch (\Exception $e) {
+        \Log::error('Error fetching units: ' . $e->getMessage());
+        return response()->json(['error' => 'Failed to fetch units'], 500);
+    }
+}
+
 
     // Save a new application
     public function store(Request $request)

@@ -280,5 +280,8 @@ Route::get('/run-contract-check', function () {
     ]);
 });
 
+Route::get('/units', [ApplicationController::class, 'getUnits']);
+
+
 Route::get('/room-pricing', [UnitController::class, 'getRoomPricing']);
 Route::get('/room-pricing/{unit_code}', [UnitController::class, 'getRoomPricingByUnit']);
