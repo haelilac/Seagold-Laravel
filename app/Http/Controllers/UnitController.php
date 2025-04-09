@@ -66,25 +66,19 @@ public function updateStatus(Request $request, $id)
 
 public function index()
 {
-    return response()->json([
-        [
-            'unit_code' => 'Room 1',
-            'name' => 'Room 1',
-            'max_capacity' => 3,
-            'total_users_count' => 1,
-            'stay_type' => 'monthly',
-            'status' => 'available'
-        ],
-        [
-            'unit_code' => 'Room 2',
-            'name' => 'Room 2',
-            'max_capacity' => 2,
-            'total_users_count' => 0,
-            'stay_type' => 'half month',
-            'status' => 'available'
-        ],
-    ]);
+    $units = Unit::select('unit_code', 'name', 'stay_type', DB::raw('MAX(capacity) as max_capacity'))
+        ->withCount([
+            'users as total_users_count' => function ($query) {
+                $query->select(DB::raw('count(*)'));
+            }
+        ])
+        ->where('status', 'available')
+        ->groupBy('unit_code', 'name', 'stay_type')
+        ->get();
+
+    return response()->json($units);
 }
+
 
 
 public function users()
