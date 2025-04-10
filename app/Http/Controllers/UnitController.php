@@ -5,7 +5,8 @@ use App\Models\Unit; // <-- Import the Unit model
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use App\Models\UnitImage;
 class UnitController extends Controller
 {
     /**
@@ -13,6 +14,49 @@ class UnitController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
+    public function uploadRoomImage(Request $request)
+    {
+        $validated = $request->validate([
+            'image' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'unit_code' => 'required|string',
+        ]);
+    
+        $uploadedUrl = Cloudinary::upload($request->file('image')->getRealPath(), [
+            'folder' => 'room_images'
+        ])->getSecurePath();
+    
+        // Optional: You can store this in a `unit_images` table or update an image_path on unit.
+        DB::table('unit_images')->insert([
+            'unit_code' => $validated['unit_code'],
+            'image_path' => $uploadedUrl,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    
+        return response()->json(['message' => 'Room image uploaded!', 'image_url' => $uploadedUrl]);
+    }
+
+    public function getUnitImages($unit_code)
+{
+    $images = DB::table('unit_images')->where('unit_code', $unit_code)->get();
+    return response()->json($images);
+}
+
+public function deleteRoomImage($id)
+{
+    $image = DB::table('unit_images')->find($id);
+
+    if (!$image) {
+        return response()->json(['message' => 'Image not found'], 404);
+    }
+
+    // Optionally delete from Cloudinary (if storing public_id)
+    // Cloudinary::destroy($image->public_id);
+
+    DB::table('unit_images')->where('id', $id)->delete();
+
+    return response()->json(['message' => 'Image deleted successfully']);
+}
 
      public function assignUnit(Request $request)
      {

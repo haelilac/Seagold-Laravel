@@ -286,3 +286,8 @@ Route::get('/units/by-code/{unit_code}', [UnitController::class, 'getUnitsByCode
 
 Route::get('/room-pricing', [UnitController::class, 'getRoomPricing']);
 Route::get('/room-pricing/{unit_code}', [UnitController::class, 'getRoomPricingByUnit']);
+
+
+Route::post('/unit-images/upload', [UnitController::class, 'uploadRoomImage']);
+Route::get('/unit-images/{unit_code}', [UnitController::class, 'getUnitImages']);
+Route::delete('/unit-images/{id}', [UnitController::class, 'deleteRoomImage']);
