@@ -107,41 +107,46 @@ public function updateStatus(Request $request, $id)
     return $this->updateUnitStatus($request, $id); // reuse the same logic
 }
 
-
 public function index()
 {
+    // First: Fetch grouped unit data
     $unitGroups = DB::table('units')
-    ->select(
-        DB::raw('MIN(id) as id'),
-        'unit_code',
-        DB::raw('MAX(max_capacity) as max_capacity'),
-        DB::raw('MIN(price) as min_price'),
-        DB::raw('MAX(price) as max_price'),
-        DB::raw('GROUP_CONCAT(DISTINCT stay_type) as stay_types'),
-        DB::raw('GROUP_CONCAT(status) as statuses'),
-        DB::raw("IF(SUM(status = 'available') > 0, 'available', 'unavailable') as overall_status")
-    )
+        ->select(
+            DB::raw('MIN(id) as id'),
+            'unit_code',
+            DB::raw('MAX(max_capacity) as max_capacity'),
+            DB::raw('MIN(price) as min_price'),
+            DB::raw('MAX(price) as max_price'),
+            DB::raw('GROUP_CONCAT(DISTINCT stay_type) as stay_types'),
+            DB::raw('GROUP_CONCAT(status) as statuses'),
+            DB::raw("IF(SUM(status = 'available') > 0, 'available', 'unavailable') as overall_status")
+        )
         ->groupBy('unit_code')
         ->get();
 
-    // Map through each unit_code group to compute additional data
+    // Then: Map to enrich each unit group with extra info
     $unitGroups = $unitGroups->map(function ($unit) {
-        // Count only monthly tenants for this unit_code
+        // Count monthly tenants
         $monthly_users_count = DB::table('users')
             ->whereIn('unit_id', function ($query) use ($unit) {
                 $query->select('id')
                     ->from('units')
                     ->where('unit_code', $unit->unit_code)
-                    ->where('stay_type', 'monthly'); // Only monthly
+                    ->where('stay_type', 'monthly');
             })->count();
 
-        // Determine base price (price with matching capacity)
+        // Determine base price
         $base_unit = DB::table('units')
             ->where('unit_code', $unit->unit_code)
             ->where('stay_type', 'monthly')
             ->where('capacity', '>=', $monthly_users_count)
-            ->orderBy('capacity') // Get the closest match
+            ->orderBy('capacity')
             ->first();
+
+        // Fetch images
+        $unit->images = DB::table('unit_images')
+            ->where('unit_code', $unit->unit_code)
+            ->pluck('image_path');
 
         $unit->monthly_users_count = $monthly_users_count;
         $unit->base_price = $base_unit ? $base_unit->price : null;
@@ -151,6 +156,7 @@ public function index()
 
     return response()->json($unitGroups);
 }
+
 
 public function getUnitsByCode($unit_code)
 {
