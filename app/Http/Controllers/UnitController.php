@@ -146,7 +146,7 @@ public function index()
         // Fetch images
         $unit->images = DB::table('unit_images')
             ->where('unit_code', $unit->unit_code)
-            ->pluck('image_path');
+            ->get();
 
         $unit->monthly_users_count = $monthly_users_count;
         $unit->base_price = $base_unit ? $base_unit->price : null;
