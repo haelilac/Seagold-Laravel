@@ -99,7 +99,7 @@ class ApplicationController extends Controller
 
         $tenantCount = User::where('unit_id', $unit->id)->count() + 1; // +1 to include current applicant
 
-        $pricing = \DB::table('room_pricings')
+        $pricing = \DB::table('units')
             ->where('unit_code', $validated['reservation_details'])
             ->where('stay_type', $validated['stay_type'])
             ->where('min_capacity', '<=', $tenantCount)
