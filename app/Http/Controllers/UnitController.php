@@ -36,6 +36,22 @@ class UnitController extends Controller
         return response()->json(['message' => 'Room image uploaded!', 'image_url' => $uploadedUrl]);
     }
 
+    public function getRoomPricing(Request $request)
+{
+    $unitCode = $request->input('unit_code');
+    $stayType = $request->input('stay_type');
+
+    if (!$unitCode || !$stayType) {
+        return response()->json(['message' => 'Missing unit_code or stay_type.'], 400);
+    }
+
+    $units = Unit::where('unit_code', $unitCode)
+        ->where('stay_type', $stayType)
+        ->get();
+
+    return response()->json($units);
+}
+
     public function getUnitImages($unit_code)
 {
     $images = DB::table('unit_images')->where('unit_code', $unit_code)->get();
@@ -143,7 +159,7 @@ public function index()
             ->orderBy('capacity')
             ->first();
 
-            
+
         // Fetch images
         $unit->images = DB::table('unit_images')
             ->where('unit_code', $unit->unit_code)
