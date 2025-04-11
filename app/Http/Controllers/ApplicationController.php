@@ -22,7 +22,7 @@ class ApplicationController extends Controller
 
         // Fetch units with tenant count and status
         $units = Unit::select('id', 'name', 'unit_code', 'capacity', 'price', 'status')
-                     ->withCount('users')
+                    ->withCount('tenants')
                      ->get();
     
         return response()->json([
@@ -101,7 +101,7 @@ class ApplicationController extends Controller
 
         // Fallback to unit price if set_price is not provided from the frontend
         $setPrice = $validated['set_price'] ?? $unit->price;
-        
+
         // Create the application
         $application = Application::create([
             'first_name' => $validated['first_name'],

@@ -26,11 +26,11 @@ class Unit extends Model
     }
 
     // Relationship to fetch all users assigned to the unit
-    public function users()
+    public function tenants()
     {
         return $this->hasMany(User::class, 'unit_id');
     }
-
+    
     // Relationship to fetch all applications linked to the unit by unit_code
     public function applications()
     {
