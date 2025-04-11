@@ -100,7 +100,7 @@ class ApplicationController extends Controller
         $tenantCount = User::where('unit_id', $unit->id)->count() + 1; // +1 to include current applicant
 
         // Fallback to unit price if set_price is not provided from the frontend
-        $setPrice = $validated['set_price'] ?? $unit->price;
+        $setPrice = (!empty($validated['set_price'])) ? $validated['set_price'] : $unit->price;
 
         // Create the application
         $application = Application::create([
