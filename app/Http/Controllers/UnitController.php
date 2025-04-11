@@ -143,6 +143,7 @@ public function index()
             ->orderBy('capacity')
             ->first();
 
+            
         // Fetch images
         $unit->images = DB::table('unit_images')
             ->where('unit_code', $unit->unit_code)
