@@ -25,6 +25,11 @@ class Unit extends Model
         return $this->hasOne(User::class, 'unit_id', 'id');
     }
 
+    public function users()
+{
+    return $this->hasMany(User::class, 'unit_id');
+}
+
     // Relationship to fetch all users assigned to the unit
     public function tenants()
     {
