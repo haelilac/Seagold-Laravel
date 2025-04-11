@@ -22,8 +22,8 @@ class ApplicationController extends Controller
 
         // Fetch units with tenant count and status
         $units = Unit::select('id', 'name', 'unit_code', 'capacity', 'price', 'status')
-                    ->withCount('tenants')
-                     ->get();
+        ->withCount('users') // ✅ Corrected from 'tenants' to 'users'
+        ->get();
     
         return response()->json([
             'applications' => $applications,
