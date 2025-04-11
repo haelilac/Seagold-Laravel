@@ -99,15 +99,9 @@ class ApplicationController extends Controller
 
         $tenantCount = User::where('unit_id', $unit->id)->count() + 1; // +1 to include current applicant
 
-        $pricing = \DB::table('units')
-            ->where('unit_code', $validated['reservation_details'])
-            ->where('stay_type', $validated['stay_type'])
-            ->where('min_capacity', '<=', $tenantCount)
-            ->where('max_capacity', '>=', $tenantCount)
-            ->first();
+        // Fallback to unit price if set_price is not provided from the frontend
+        $setPrice = $validated['set_price'] ?? $unit->price;
         
-        // Fallback to unit price if not found
-        $setPrice = $validated['set_price'] ?? ($pricing->price ?? $unit->price);
         // Create the application
         $application = Application::create([
             'first_name' => $validated['first_name'],
