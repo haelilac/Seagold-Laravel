@@ -115,7 +115,8 @@ class PaymentController extends Controller
             'receipt_path' => $receiptPath,
             'status' => 'Pending',
         ]);
-    
+        
+        event(new \App\Events\NewPaymentSubmitted($payment));
         return response()->json([
             'message' => 'Payment recorded successfully!',
             'payment' => $payment,
