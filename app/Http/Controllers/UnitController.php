@@ -198,7 +198,6 @@ public function users()
         // Validate input
         $validated = $request->validate([
             'unit_code' => 'required|string|max:50|unique:units,unit_code',
-            'name' => 'required|string|max:255',
             'capacity' => 'required|integer',
             'price' => 'required|numeric',
             'stay_type' => 'required|string|in:daily,weekly,half-month,monthly',
@@ -239,7 +238,6 @@ public function users()
         $unit = Unit::findOrFail($id);
     
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
             'capacity' => 'required|integer',
             'max_capacity' => 'required|integer',
             'occupancy' => 'required|integer',
