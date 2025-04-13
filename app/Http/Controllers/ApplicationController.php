@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\Application;
 use App\Models\User;
 use App\Models\Unit;
+use App\Events\NewApplicationSubmitted;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class ApplicationController extends Controller
 {
@@ -105,7 +106,6 @@ public function unitsOnly()
     public function store(Request $request)
     {
         \Log::info('Store method triggered', $request->all());
-    
         // Validate incoming request
         $validated = $request->validate([
             'first_name' => 'required|string|max:100',
@@ -183,6 +183,10 @@ public function unitsOnly()
             'province' => $validated['province'], // ✅ Store the Province Name
             'zip_code' => $validated['zip_code'],
         ]);
+
+        // ✅ Fire event AFTER the application is created
+        event(new NewApplicationSubmitted($application));
+
         return response()->json(['message' => 'Application submitted successfully!', 'application' => $application], 201);
     }
     
