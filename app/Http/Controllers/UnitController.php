@@ -270,7 +270,7 @@ public function users()
     public function publicUnits()
 {
     $units = DB::table('units')
-        ->select('id', 'unit_code', 'name', 'max_capacity')
+        ->select('id', 'unit_code', 'max_capacity')
         ->groupBy('unit_code')
         ->get();
 
