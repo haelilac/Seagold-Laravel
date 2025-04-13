@@ -266,21 +266,25 @@ public function users()
     }
     
     public function publicUnits()
-{
-    $units = DB::table('units')
-        ->select('id', 'unit_code', 'max_capacity')
-        ->groupBy('unit_code')
-        ->get();
-
-    // Attach 1 image only (for preview)
-    foreach ($units as $unit) {
-        $unit->images = DB::table('unit_images')
-            ->where('unit_code', $unit->unit_code)
-            ->limit(1) // ✅ only one image for speed
+    {
+        $units = DB::table('units')
+            ->select(
+                DB::raw('MIN(id) as id'),
+                'unit_code',
+                DB::raw('MAX(max_capacity) as max_capacity')
+            )
+            ->groupBy('unit_code')
             ->get();
+    
+        // Attach preview image
+        foreach ($units as $unit) {
+            $unit->images = DB::table('unit_images')
+                ->where('unit_code', $unit->unit_code)
+                ->limit(1)
+                ->get();
+        }
+    
+        return response()->json($units);
     }
-
-    return response()->json($units);
-}
-
+    
 }
