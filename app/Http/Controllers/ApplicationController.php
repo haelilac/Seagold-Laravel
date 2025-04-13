@@ -195,6 +195,10 @@ public function unitsOnly()
 // Accept an application
 public function accept(Request $request, $id)
 {
+    \Log::info('🟢 POST /accept route hit!', [
+        'method' => $request->method(),
+        'data' => $request->all(),
+    ]);
     try {
         \Log::info('Accept Method Triggered', ['application_id' => $id, 'request_data' => $request->all()]);
 
