@@ -29,18 +29,19 @@ class ApplicationController extends Controller
         )
         ->withCount([
             'users as total_users_count',
-            'users as same_staytype_users_count' => function ($query) {
-                $query->select(\DB::raw('count(*)'))
-                      ->whereColumn('users.unit_id', 'units.id')
-                      ->whereColumn('users.stay_type', 'units.stay_type');
-            }
         ])
-        ->get();
-    
-        return response()->json([
-            'applications' => $applications,
-            'units' => $units,
-        ]);
+        ->get()
+        ->map(function ($unit) {
+            // Count pending applications with the same unit_code and stay_type
+            $sameStayTypeCount = \App\Models\Application::where('reservation_details', $unit->unit_code)
+                ->where('stay_type', $unit->stay_type)
+                ->where('status', 'pending')
+                ->count();
+        
+            $unit->same_staytype_users_count = $sameStayTypeCount;
+        
+            return $unit;
+        });   
     }
     
 
