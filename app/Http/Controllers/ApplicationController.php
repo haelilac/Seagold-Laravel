@@ -186,8 +186,6 @@ public function unitsOnly()
         return response()->json(['message' => 'Application submitted successfully!', 'application' => $application], 201);
     }
     
-    
-// Accept an application
 // Accept an application
 public function accept(Request $request, $id)
 {
@@ -223,6 +221,10 @@ public function accept(Request $request, $id)
         // Explicitly cast unit_id to ensure it's passed correctly
         $unitId = (int) $unit->id;
 
+        // Determine rent price for billing (set_price > 0 ? use it : use unit->price)
+        $finalRentPrice = ($application->set_price && $application->set_price > 0)
+            ? $application->set_price
+            : $unit->price;
         // Create a new tenant account in the users table
         $user = User::create([
             'name' => $application->first_name . ' ' . $application->last_name,
@@ -230,6 +232,7 @@ public function accept(Request $request, $id)
             'password' => Hash::make($password),
             'unit_id' => $unitId,
             'role' => 'tenant',
+            'rent_price' => $finalRentPrice,
         ]);
 
         \Log::info('User Created', ['user_id' => $user->id, 'unit_id' => $user->unit_id]);
