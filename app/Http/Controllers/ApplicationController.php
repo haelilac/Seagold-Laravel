@@ -15,14 +15,26 @@ class ApplicationController extends Controller
 
     public function index()
     {
-        // Fetch all pending applications
-        $applications = Application::select('id', 'first_name', 'middle_name', 'last_name', 'email', 'contact_number', 'check_in_date', 'duration', 'reservation_details', 'valid_id', 'status')
+        $applications = Application::select(
+            'id', 'first_name', 'middle_name', 'last_name', 'email',
+            'contact_number', 'check_in_date', 'duration', 'reservation_details',
+            'valid_id', 'status', 'stay_type', 'set_price'
+        )
         ->where('status', 'pending')
         ->get();
-
-        // Fetch units with tenant count and status
-        $units = Unit::select('id', 'unit_code', 'capacity', 'price', 'status')
-        ->withCount('tenants')
+    
+        $units = Unit::select(
+            'id', 'unit_code', 'capacity', 'max_capacity', 'occupancy',
+            'price', 'stay_type', 'status'
+        )
+        ->withCount([
+            'users as total_users_count',
+            'users as same_staytype_users_count' => function ($query) {
+                $query->select(\DB::raw('count(*)'))
+                      ->whereColumn('users.unit_id', 'units.id')
+                      ->whereColumn('users.stay_type', 'units.stay_type');
+            }
+        ])
         ->get();
     
         return response()->json([
@@ -30,6 +42,7 @@ class ApplicationController extends Controller
             'units' => $units,
         ]);
     }
+    
 
     public function getUnits()
     {

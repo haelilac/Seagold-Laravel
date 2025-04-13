@@ -14,7 +14,8 @@ class Unit extends Model
         'name',
         'capacity',
         'price',
-        'stay_type', // Add stay_type here
+        'stay_type',
+        'occupancy',
         'status',
     ];
     

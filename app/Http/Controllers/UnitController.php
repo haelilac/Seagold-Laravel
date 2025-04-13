@@ -236,31 +236,24 @@ public function users()
      */
     public function update(Request $request, $id)
     {
-        // Fetch the unit by ID
         $unit = Unit::findOrFail($id);
-
-        // Validate incoming request
+    
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'capacity' => 'required|integer',
+            'max_capacity' => 'required|integer',
+            'occupancy' => 'required|integer',
             'price' => 'required|numeric',
         ]);
-
-        // Update the unit
+    
         $unit->update($validated);
-
+    
         return response()->json([
             'message' => 'Unit updated successfully!',
             'unit' => $unit,
         ]);
     }
-
-    /**
-     * Remove the specified unit from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
-     */
+    
     public function destroy($id)
     {
         $unit = Unit::findOrFail($id);
