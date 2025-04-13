@@ -31,10 +31,11 @@ class ApplicationController extends Controller
         ])
         ->get()
         ->map(function ($unit) {
-            $sameStayTypeCount = \App\Models\Application::where('reservation_details', $unit->unit_code)
-                ->where('stay_type', $unit->stay_type)
-                ->where('status', 'pending')
-                ->count();
+            $sameStayTypeCount = \App\Models\User::where('unit_id', $unit->id)
+            ->whereHas('unit', function ($q) use ($unit) {
+                $q->where('stay_type', $unit->stay_type);
+            })
+            ->count();
     
             $unit->same_staytype_users_count = $sameStayTypeCount;
     
