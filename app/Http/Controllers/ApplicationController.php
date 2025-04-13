@@ -51,6 +51,8 @@ class ApplicationController extends Controller
 // Fetch only applications
 public function applicationsOnly()
 {
+    \Log::info('✅ applicationsOnly route hit');
+
     $applications = Application::select(
         'id', 'first_name', 'middle_name', 'last_name', 'email',
         'contact_number', 'check_in_date', 'duration', 'reservation_details',
