@@ -12,7 +12,6 @@ use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class ApplicationController extends Controller
 {
     // Fetch all pending applications
-
     public function index()
     {
         $applications = Application::select(
@@ -32,16 +31,21 @@ class ApplicationController extends Controller
         ])
         ->get()
         ->map(function ($unit) {
-            // Count pending applications with the same unit_code and stay_type
             $sameStayTypeCount = \App\Models\Application::where('reservation_details', $unit->unit_code)
                 ->where('stay_type', $unit->stay_type)
                 ->where('status', 'pending')
                 ->count();
-        
+    
             $unit->same_staytype_users_count = $sameStayTypeCount;
-        
+    
             return $unit;
-        });   
+        });
+    
+        // ✅ This was missing
+        return response()->json([
+            'applications' => $applications,
+            'units' => $units,
+        ]);
     }
     
 
