@@ -267,4 +267,22 @@ public function users()
         return response()->json(['message' => 'Unit deleted successfully!']);
     }
     
+    public function publicUnits()
+{
+    $units = DB::table('units')
+        ->select('id', 'unit_code', 'name', 'max_capacity')
+        ->groupBy('unit_code')
+        ->get();
+
+    // Attach 1 image only (for preview)
+    foreach ($units as $unit) {
+        $unit->images = DB::table('unit_images')
+            ->where('unit_code', $unit->unit_code)
+            ->limit(1) // ✅ only one image for speed
+            ->get();
+    }
+
+    return response()->json($units);
+}
+
 }
