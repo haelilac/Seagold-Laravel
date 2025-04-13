@@ -276,12 +276,11 @@ public function users()
             ->groupBy('unit_code')
             ->get();
     
-        // Attach preview image
+        // Attach ALL images (no limit!)
         foreach ($units as $unit) {
             $unit->images = DB::table('unit_images')
                 ->where('unit_code', $unit->unit_code)
-                ->limit(1)
-                ->get();
+                ->get(); // ✅ remove limit(1)
         }
     
         return response()->json($units);
