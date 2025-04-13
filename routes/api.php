@@ -292,3 +292,5 @@ Route::post('/unit-images/upload', [UnitController::class, 'uploadRoomImage']);
 Route::get('/unit-images/{unit_code}', [UnitController::class, 'getUnitImages']);
 Route::delete('/unit-images/{id}', [UnitController::class, 'deleteRoomImage']);
 Route::get('/public-units', [UnitController::class, 'publicUnits']);
+Route::get('/applications-only', [ApplicationController::class, 'applicationsOnly']);
+Route::get('/units-only', [ApplicationController::class, 'unitsOnly']);

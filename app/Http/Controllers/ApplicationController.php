@@ -26,29 +26,65 @@ class ApplicationController extends Controller
             'id', 'unit_code', 'capacity', 'max_capacity', 'occupancy',
             'price', 'stay_type', 'status'
         )
-        ->withCount([
-            'users as total_users_count',
-        ])
-        ->get()
-        ->map(function ($unit) {
-            $sameStayTypeCount = \App\Models\User::where('unit_id', $unit->id)
-            ->whereHas('unit', function ($q) use ($unit) {
-                $q->where('stay_type', $unit->stay_type);
-            })
-            ->count();
+        ->withCount(['users as total_users_count'])
+        ->get();
     
-            $unit->same_staytype_users_count = $sameStayTypeCount;
+        // Preload user counts by stay_type and unit_id
+        $stayTypeCounts = User::selectRaw('unit_id, stay_type, COUNT(*) as count')
+            ->join('units', 'users.unit_id', '=', 'units.id')
+            ->groupBy('unit_id', 'stay_type')
+            ->get()
+            ->keyBy(fn($row) => $row->unit_id . '_' . strtolower($row->stay_type));
     
-            return $unit;
-        });
+        // Inject into each unit
+        foreach ($units as $unit) {
+            $key = $unit->id . '_' . strtolower($unit->stay_type);
+            $unit->same_staytype_users_count = $stayTypeCounts[$key]->count ?? 0;
+        }
     
-        // ✅ This was missing
         return response()->json([
             'applications' => $applications,
             'units' => $units,
         ]);
     }
-    
+// Fetch only applications
+public function applicationsOnly()
+{
+    $applications = Application::select(
+        'id', 'first_name', 'middle_name', 'last_name', 'email',
+        'contact_number', 'check_in_date', 'duration', 'reservation_details',
+        'valid_id', 'status', 'stay_type', 'set_price'
+    )
+    ->where('status', 'pending')
+    ->get();
+
+    return response()->json(['applications' => $applications]);
+}
+
+// Fetch only units with counts (optimized)
+public function unitsOnly()
+{
+    $units = Unit::select(
+        'id', 'unit_code', 'capacity', 'max_capacity', 'occupancy',
+        'price', 'stay_type', 'status'
+    )
+    ->withCount(['users as total_users_count'])
+    ->get();
+
+    // Preload counts by stay_type and unit_id
+    $stayTypeCounts = User::selectRaw('unit_id, stay_type, COUNT(*) as count')
+        ->join('units', 'users.unit_id', '=', 'units.id')
+        ->groupBy('unit_id', 'stay_type')
+        ->get()
+        ->keyBy(fn($row) => $row->unit_id . '_' . strtolower($row->stay_type));
+
+    foreach ($units as $unit) {
+        $key = $unit->id . '_' . strtolower($unit->stay_type);
+        $unit->same_staytype_users_count = $stayTypeCounts[$key]->count ?? 0;
+    }
+
+    return response()->json(['units' => $units]);
+}
 
     public function getUnits()
     {
