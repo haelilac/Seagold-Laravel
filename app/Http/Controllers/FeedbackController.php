@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Feedback;
-
+use App\Events\NewFeedbackSubmitted;
 class FeedbackController extends Controller
 {
     // Store feedback
@@ -15,15 +15,17 @@ class FeedbackController extends Controller
             'emoji_rating' => 'required|in:in-love,happy,neutral,sad,angry',
             'comment' => 'nullable|string|max:1000',
         ]);
-
+    
         $feedback = Feedback::create($validated);
-
+    
+        // 🔔 Fire Event
+        broadcast(new NewFeedbackSubmitted($feedback))->toOthers();
+    
         return response()->json([
             'message' => 'Feedback submitted successfully.',
             'feedback' => $feedback,
         ], 201);
     }
-
     // Retrieve all feedback
     public function index()
     {

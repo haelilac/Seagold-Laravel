@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log; // For debugging purposes
 use App\Models\Notification;
 use App\Models\User;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
-
+use App\Events\NewMaintenanceSubmitted;
 class MaintenanceRequestController extends Controller
 {
     // Store a new maintenance requestuse App\Models\Notification; // Import Notification model
@@ -76,7 +76,7 @@ class MaintenanceRequestController extends Controller
         
     
         \Log::info('Maintenance request notifications created successfully for all admins.');
-    
+        event(new NewMaintenanceSubmitted($maintenanceRequest));
         return response()->json($maintenanceRequest, 201);
     }
     

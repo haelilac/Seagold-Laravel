@@ -245,7 +245,8 @@ public function users()
         ]);
     
         $unit->update($validated);
-    
+        event(new \App\Events\UnitUpdated($unit));
+
         return response()->json([
             'message' => 'Unit updated successfully!',
             'unit' => $unit,
