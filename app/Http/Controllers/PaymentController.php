@@ -93,7 +93,7 @@ class PaymentController extends Controller
             ? $request->file('receipt')->store('uploads/receipts', 'public') 
             : null;
     
-        $unitPrice = $user->unit ? $user->unit->price : 0;
+        $unitPrice = $user->rent_price ?? ($user->unit->price ?? 0);
         $previousPayments = Payment::where('user_id', $user->id)
             ->where('payment_period', $request->payment_for)
             ->where('status', 'Confirmed') // ✅ only subtract confirmed
@@ -423,7 +423,7 @@ public function updateStatus($user_id)
             }
     
             // ✔️ Use set_price from applications table if available, otherwise use original unit price
-            $unitPrice = $application->set_price ?? $unit->price;
+            $unitPrice = $tenant->rent_price ?? ($application->set_price ?? $unit->price);
     
             // Retrieve all payments made by the user
             $payments = \App\Models\Payment::where('user_id', $tenantId)
