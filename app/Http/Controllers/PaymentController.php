@@ -63,40 +63,37 @@ class PaymentController extends Controller
         if (!$unitId) {
             return response()->json(['error' => 'Server error', 'details' => 'Tenant has no assigned unit.'], 400);
         }
-    
-        $unitPrice = $user->rent_price ?? ($user->unit->price ?? 0); // Default to rent_price if available, otherwise fallback to unit price
         
-        // Get the duration (in days)
-        $duration = $request->duration; // This should be passed in the request, as it's the number of days
-    
-        if (!$duration || $duration <= 0) {
-            return response()->json(['error' => 'Invalid duration. Please provide a valid duration.'], 400);
+        // ✅ Fetch the unit model
+        $unit = \App\Models\Unit::find($unitId);
+        if (!$unit) {
+            return response()->json(['error' => 'Unit not found.'], 404);
         }
-    
-        $stayType = $request->stay_type; // The stay type (daily, weekly, half-month, monthly)
         
-        // Calculate total payment based on duration and stay type
+        $unitPrice = $user->rent_price ?? $unit->price ?? 0; // Default to rent_price if available, otherwise fallback to unit price
+        
+        $stayType = $request->stay_type;
+        $duration = $request->duration; // Duration in days
+        
+        // Calculate the total amount based on the stay type
         switch ($stayType) {
             case 'daily':
-                $totalAmount = $unitPrice * $duration; // Calculate total price based on stay duration (daily)
+                $totalAmount = $unitPrice * $duration; // Daily calculation
                 break;
-    
             case 'weekly':
-                $totalWeeks = ceil($duration / 7); // Convert days to weeks (e.g., 6 days = 1 week)
-                $totalAmount = $unitPrice * $totalWeeks; // Weekly rate calculation
+                $totalWeeks = ceil($duration / 7); // Calculate weeks
+                $totalAmount = $unitPrice * $totalWeeks; // Weekly calculation
                 break;
-    
             case 'half-month':
-                $totalAmount = $user->unit->half_month_price ?? $unitPrice; // Directly use the half-month price if available
+                $totalAmount = $unit->half_month_price; // Use fixed half-month price
                 break;
-    
             case 'monthly':
-                $totalAmount = $unitPrice; // Full month price
+                $totalAmount = $unitPrice; // Use full unit price for monthly
                 break;
-    
             default:
-                return response()->json(['error' => 'Invalid stay type'], 400);
+                $totalAmount = $unitPrice; // Default to unit price
         }
+        
     
         // Handle duplicate payment reference number
         if (Payment::where('reference_number', $request->reference_number)->exists()) {
@@ -119,12 +116,13 @@ class PaymentController extends Controller
             ], 400);
         }
     
-        // Store the payment details
+
+        // Store payment
         $payment = Payment::create([
             'user_id' => $user->id,
             'unit_id' => $unitId,
-            'amount' => $totalAmount, // Use the calculated total amount based on duration and stay_type
-            'remaining_balance' => $totalAmount - $request->amount, // Calculate remaining balance
+            'amount' => $totalAmount,
+            'remaining_balance' => $totalAmount - $request->amount,
             'payment_type' => $request->amount < $totalAmount ? 'Partially Paid' : 'Fully Paid',
             'payment_method' => $request->payment_method,
             'reference_number' => $request->reference_number,
