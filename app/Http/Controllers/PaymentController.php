@@ -44,35 +44,12 @@ class PaymentController extends Controller
     public function store(Request $request)
     {
         $user = $request->user();
-    
+        
         if (!$user) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
     
-        \Log::info('Received Payment Request:', $request->all());
-    
-        // ✅ Check for duplicate reference number BEFORE validation
-        if (Payment::where('reference_number', $request->reference_number)->exists()) {
-            return response()->json([
-                'error' => 'Duplicate Reference Number',
-                'details' => 'The reference number has already been used. Please enter a new one.'
-            ], 400);
-        }
-    
-        // ✅ Check for existing pending payment for the same month
-        $hasPending = Payment::where('user_id', $user->id)
-            ->where('payment_period', $request->payment_for)
-            ->where('status', 'Pending')
-            ->exists();
-
-        if ($hasPending) {
-            return response()->json([
-                'error' => 'Pending Payment Exists',
-                'details' => 'You already have a recent pending transaction for this billing period. Please wait for it to be approved or rejected before submitting another payment.'
-            ], 400);
-        }
-
-    
+        // Validate the incoming request
         $request->validate([
             'amount' => 'required|numeric|min:1',
             'payment_method' => 'required|string|max:50',
@@ -81,47 +58,90 @@ class PaymentController extends Controller
             'payment_for' => 'required|date',
             'receipt' => 'nullable|file|mimes:png,jpg,jpeg,pdf|max:2048',
         ]);
-        
-        $reference = $request->reference_number ?? 'CASH-' . now()->timestamp;
     
         $unitId = $user->unit_id ?? null; 
         if (!$unitId) {
             return response()->json(['error' => 'Server error', 'details' => 'Tenant has no assigned unit.'], 400);
         }
     
-        $receiptPath = $request->hasFile('receipt') 
-            ? $request->file('receipt')->store('uploads/receipts', 'public') 
-            : null;
+        $unitPrice = $user->rent_price ?? ($user->unit->price ?? 0); // Default to rent_price if available, otherwise fallback to unit price
+        
+        // Get the duration (in days)
+        $duration = $request->duration; // This should be passed in the request, as it's the number of days
     
-        $unitPrice = $user->rent_price ?? ($user->unit->price ?? 0);
-        $previousPayments = Payment::where('user_id', $user->id)
+        if (!$duration || $duration <= 0) {
+            return response()->json(['error' => 'Invalid duration. Please provide a valid duration.'], 400);
+        }
+    
+        $stayType = $request->stay_type; // The stay type (daily, weekly, half-month, monthly)
+        
+        // Calculate total payment based on duration and stay type
+        switch ($stayType) {
+            case 'daily':
+                $totalAmount = $unitPrice * $duration; // Calculate total price based on stay duration (daily)
+                break;
+    
+            case 'weekly':
+                $totalWeeks = ceil($duration / 7); // Convert days to weeks (e.g., 6 days = 1 week)
+                $totalAmount = $unitPrice * $totalWeeks; // Weekly rate calculation
+                break;
+    
+            case 'half-month':
+                $totalAmount = ($unitPrice * 30) / 2; // Assuming 30 days in a month, calculate half-month price
+                break;
+    
+            case 'monthly':
+                $totalAmount = $unitPrice; // Full month price
+                break;
+    
+            default:
+                return response()->json(['error' => 'Invalid stay type'], 400);
+        }
+    
+        // Handle duplicate payment reference number
+        if (Payment::where('reference_number', $request->reference_number)->exists()) {
+            return response()->json([
+                'error' => 'Duplicate Reference Number',
+                'details' => 'The reference number has already been used. Please enter a new one.'
+            ], 400);
+        }
+    
+        // Check if there's an existing pending payment for the same month
+        $hasPending = Payment::where('user_id', $user->id)
             ->where('payment_period', $request->payment_for)
-            ->where('status', 'Confirmed') // ✅ only subtract confirmed
-            ->sum('amount');
+            ->where('status', 'Pending')
+            ->exists();
     
+        if ($hasPending) {
+            return response()->json([
+                'error' => 'Pending Payment Exists',
+                'details' => 'You already have a pending payment for this billing period.'
+            ], 400);
+        }
     
-        $remainingBalance = max(0, $unitPrice - $previousPayments);
-        $paymentType = ($remainingBalance > 0) ? 'Partially Paid' : 'Fully Paid';
-    
+        // Store the payment details
         $payment = Payment::create([
             'user_id' => $user->id,
             'unit_id' => $unitId,
-            'amount' => $request->amount,
-            'remaining_balance' => $remainingBalance,
-            'payment_type' => $paymentType,
+            'amount' => $totalAmount, // Use the calculated total amount based on duration and stay_type
+            'remaining_balance' => $totalAmount - $request->amount, // Calculate remaining balance
+            'payment_type' => $request->amount < $totalAmount ? 'Partially Paid' : 'Fully Paid',
             'payment_method' => $request->payment_method,
             'reference_number' => $request->reference_number,
             'payment_period' => $request->payment_for,
-            'receipt_path' => $receiptPath,
+            'receipt_path' => $request->hasFile('receipt') ? $request->file('receipt')->store('uploads/receipts', 'public') : null,
             'status' => 'Pending',
         ]);
-        
+    
+        // Trigger the payment submitted event
         event(new \App\Events\NewPaymentSubmitted($payment));
+    
         return response()->json([
             'message' => 'Payment recorded successfully!',
             'payment' => $payment,
         ], 200);
     }
+    
     
     private function calculateNextDueDate($checkInDate, $duration)
     {
