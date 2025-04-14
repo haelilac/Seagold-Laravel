@@ -94,6 +94,10 @@ class PaymentController extends Controller
                 $totalAmount = $unitPrice; // Default to unit price
         }
         
+        // Prevent partial payments for non-monthly tenants
+        if ($stayType !== 'monthly' && $request->amount < $totalAmount) {
+            return response()->json(['error' => 'Partial payments are not allowed for this stay type.'], 400);
+        }
     
         // Handle duplicate payment reference number
         if (Payment::where('reference_number', $request->reference_number)->exists()) {
@@ -116,7 +120,6 @@ class PaymentController extends Controller
             ], 400);
         }
     
-
         // Store payment
         $payment = Payment::create([
             'user_id' => $user->id,
@@ -138,7 +141,7 @@ class PaymentController extends Controller
             'message' => 'Payment recorded successfully!',
             'payment' => $payment,
         ], 200);
-    }    
+    }
     
     
     private function calculateNextDueDate($checkInDate, $duration)
@@ -441,14 +444,14 @@ public function updateStatus($user_id)
                 return response()->json(['error' => 'No unit assigned to this tenant.'], 404);
             }
     
-            // ✔️ Use set_price from applications table if available, otherwise use original unit price
+            // Use set_price from applications table if available, otherwise use original unit price
             $unitPrice = $tenant->rent_price ?? ($application->set_price ?? $unit->price);
     
             // Retrieve all payments made by the user
             $payments = \App\Models\Payment::where('user_id', $tenantId)
             ->where('status', 'Confirmed')
             ->get();
-
+    
             $unpaidBalances = [];
             $dueDate = $this->calculateNextDueDate($application->check_in_date, $application->duration);
     
@@ -460,14 +463,14 @@ public function updateStatus($user_id)
                 $currentMonth = $startDate->copy()->addMonths($i)->format('Y-m-d');
                 $months[] = $currentMonth;
             }
-            
+    
             $intervalDays = match($application->stay_type) {
                 'daily' => 1,
                 'weekly' => 7,
                 'half-month' => 15,
                 'monthly' => 30,
             };
-
+    
             for ($i = 0; $i < $application->duration; $i++) {
                 $paymentDate = $startDate->copy()->addDays($i * $intervalDays)->format('Y-m-d');
                 $months[] = $paymentDate;
@@ -504,5 +507,6 @@ public function updateStatus($user_id)
             return response()->json(['error' => 'Failed to fetch tenant payments.'], 500);
         }
     }
+    
     
 }
