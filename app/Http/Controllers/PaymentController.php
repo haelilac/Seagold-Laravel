@@ -152,10 +152,10 @@ class PaymentController extends Controller
     
         $checkIn = Carbon::parse($checkInDate);
     
-        // Ensure the first payment is due one month after the check-in date
-        $nextDueDate = $checkIn->copy()->addMonth();
+        // Get the start of the next month for due date
+        $nextDueDate = $checkIn->copy()->addMonth()->startOfMonth();
     
-        // Calculate the final due date based on duration
+        // Ensure that if the due date calculation goes beyond the expected duration, it sets to 'Completed'
         $finalDueDate = $checkIn->copy()->addMonths($duration);
     
         // If the next due date is greater than the final duration, mark as "Completed"
@@ -165,7 +165,6 @@ class PaymentController extends Controller
     
         return $nextDueDate->toDateString();
     }
-    
 public function updateSpecificPayment($id)
 {
     $payment = Payment::where('id', $id)->where('status', 'Pending')->firstOrFail();
