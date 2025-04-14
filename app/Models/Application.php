@@ -30,6 +30,7 @@ class Application extends Model
         'id_type',
         'valid_id',
         'status',
+        'stay_type',
         'set_price',
         'house_number',  
         'street',        
