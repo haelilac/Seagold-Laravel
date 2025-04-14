@@ -156,9 +156,24 @@ public function unitsOnly()
 
         $tenantCount = User::where('unit_id', $unit->id)->count() + 1; // +1 to include current applicant
 
-        // Fallback to unit price if set_price is not provided from the frontend
-        $setPrice = (!empty($validated['set_price'])) ? $validated['set_price'] : $unit->price;
+    // Fallback to unit price if set_price is not provided from the frontend
+    $setPrice = $validated['set_price'] ?? null;
 
+    if (empty($setPrice)) {
+        // Calculate price based on the stay type
+        if ($validated['stay_type'] === 'weekly') {
+            // Apply logic for weekly price
+            $setPrice = $unit->price;  // You may apply your own formula for weekly price calculation
+        } elseif ($validated['stay_type'] === 'monthly') {
+            // Apply logic for monthly price
+            $setPrice = $unit->price;  // Use the unit price for monthly
+        } elseif ($validated['stay_type'] === 'half-month') {
+            // Apply logic for half-month price
+            $setPrice = $unit->price * 0.5;
+        } else {
+            $setPrice = $unit->price;  // Default price if stay type isn't specified
+        }
+    }
         // Create the application
         $application = Application::create([
             'first_name' => $validated['first_name'],
