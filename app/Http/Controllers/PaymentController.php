@@ -87,7 +87,7 @@ class PaymentController extends Controller
                 break;
     
             case 'half-month':
-                $totalAmount = ($unitPrice * 30) / 2; // Assuming 30 days in a month, calculate half-month price
+                $totalAmount = $user->unit->half_month_price ?? $unitPrice; // Directly use the half-month price if available
                 break;
     
             case 'monthly':
@@ -140,7 +140,7 @@ class PaymentController extends Controller
             'message' => 'Payment recorded successfully!',
             'payment' => $payment,
         ], 200);
-    }
+    }    
     
     
     private function calculateNextDueDate($checkInDate, $duration)
