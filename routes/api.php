@@ -294,3 +294,6 @@ Route::delete('/unit-images/{id}', [UnitController::class, 'deleteRoomImage']);
 Route::get('/public-units', [UnitController::class, 'publicUnits']);
 Route::get('/applications-only', [ApplicationController::class, 'applicationsOnly']);
 Route::get('/units-only', [ApplicationController::class, 'unitsOnly']);
+
+
+Route::middleware('auth:sanctum')->get('/tenant-room-info', [UnitController::class, 'tenantRoomInfo']);

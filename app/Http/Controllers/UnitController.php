@@ -287,4 +287,32 @@ public function users()
         return response()->json($units);
     }
     
+    public function tenantRoomInfo(Request $request)
+{
+    $user = $request->user();
+    if (!$user) {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+
+    // Find assigned unit
+    $unit = Unit::find($user->unit_id);
+
+    if (!$unit) {
+        return response()->json(['error' => 'No assigned unit found'], 404);
+    }
+
+    // Fetch all related units (by code) and images
+    $unitGroup = Unit::where('unit_code', $unit->unit_code)->get();
+    $images = DB::table('unit_images')->where('unit_code', $unit->unit_code)->get();
+
+    return response()->json([
+        'unit_code' => $unit->unit_code,
+        'stay_types' => $unitGroup->pluck('stay_type')->unique()->values(),
+        'max_capacity' => $unitGroup->max('max_capacity'),
+        'base_price' => $unitGroup->where('stay_type', 'monthly')->min('price'),
+        'images' => $images,
+        'amenities' => ['Air Conditioning', 'Private Bathroom', 'Wi-Fi', 'Study Table', 'Wardrobe']
+    ]);
+}
+
 }
