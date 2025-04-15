@@ -144,7 +144,7 @@ class PaymentController extends Controller
     }
     
     
-    private function calculateNextDueDate($checkInDate, $duration)
+    private function calculateNextDueDate($checkInDate, $duration, $stayType, $payments)
     {
         if (!$checkInDate || !$duration) {
             return null;
@@ -152,19 +152,33 @@ class PaymentController extends Controller
     
         $checkIn = Carbon::parse($checkInDate);
     
-        // Get the start of the next month for due date
-        $nextDueDate = $checkIn->copy()->addMonth()->startOfMonth();
+        $intervalDays = match($stayType) {
+            'daily' => 1,
+            'weekly' => 7,
+            'half-month' => 15,
+            'monthly' => 30,
+            default => 30,
+        };
     
-        // Ensure that if the due date calculation goes beyond the expected duration, it sets to 'Completed'
-        $finalDueDate = $checkIn->copy()->addMonths($duration);
-    
-        // If the next due date is greater than the final duration, mark as "Completed"
-        if ($nextDueDate->greaterThan($finalDueDate)) {
-            return 'Completed';
+        // Generate all periods
+        $periods = [];
+        for ($i = 0; $i < $duration; $i++) {
+            $periods[] = $checkIn->copy()->addDays($i * $intervalDays)->format('Y-m-d');
         }
     
-        return $nextDueDate->toDateString();
+        // Get confirmed payments
+        $paidPeriods = collect($payments)->pluck('payment_period')->toArray();
+    
+        // Return the first unpaid period
+        foreach ($periods as $period) {
+            if (!in_array($period, $paidPeriods)) {
+                return $period;
+            }
+        }
+    
+        return 'Completed'; // All paid
     }
+    
 public function updateSpecificPayment($id)
 {
     $payment = Payment::where('id', $id)->where('status', 'Pending')->firstOrFail();
@@ -452,8 +466,13 @@ public function updateStatus($user_id)
             ->get();
     
             $unpaidBalances = [];
-            $dueDate = $this->calculateNextDueDate($application->check_in_date, $application->duration);
-    
+            $dueDate = $this->calculateNextDueDate(
+                $application->check_in_date,
+                $application->duration,
+                $application->stay_type,
+                $payments
+            );
+            
             // Generate months based on duration and check-in date
             $startDate = Carbon::parse($application->check_in_date);
             $months = [];
