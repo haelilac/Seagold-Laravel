@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Gallery;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
-
+use App\Events\GalleryImageUploaded;
 class GalleryController extends Controller
 {
     // Fetch all images
@@ -40,13 +40,19 @@ public function index()
         ])->getSecurePath();
     
         $image = Gallery::create([
-            'image_path' => $uploadedFileUrl, // Save Cloudinary URL
+            'image_path' => $uploadedFileUrl, // ✅ Save Cloudinary URL
             'title' => $validated['title'],
             'description' => $validated['description'],
             'category' => $validated['category'],
         ]);
     
-        return response()->json(['message' => 'Image uploaded successfully!', 'image' => $image], 201);
+        // ✅ Broadcast the correct variable
+        event(new GalleryImageUploaded($image));
+    
+        return response()->json([
+            'message' => 'Image uploaded successfully!',
+            'image' => $image
+        ], 201);
     }
     
 
