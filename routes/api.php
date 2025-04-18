@@ -152,7 +152,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Guest Authentication Routes
 Route::post('/google-login', [AuthController::class, 'googleLogin'])->middleware('guest');
-Route::post('/register-guest', [AuthController::class, 'registerGuest']);
+Route::post('/register-guest', action: [AuthController::class, 'registerGuest']);
+Route::post('/google-login-guest', [AuthController::class, 'googleLogin']); // For actual login
+Route::post('/google-verify-email', [AuthController::class, 'verifyGoogleEmail']);
 
 Route::get('/places', [PlaceController::class, 'index']);
 

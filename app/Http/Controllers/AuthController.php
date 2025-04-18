@@ -122,7 +122,28 @@ class AuthController extends Controller
             return response()->json(['error' => 'Failed to create account.'], 500);
         }
     }
-
+    public function verifyGoogleEmail(Request $request)
+    {
+        $request->validate(['token' => 'required']);
+    
+        try {
+            $firebase = (new Factory)->withServiceAccount(storage_path('app/firebase-service-account.json'))->createAuth();
+            $verifiedToken = $firebase->verifyIdToken($request->token);
+    
+            $email = $verifiedToken->claims()->get('email');
+            $name = $verifiedToken->claims()->get('name');
+    
+            if (!$email) {
+                throw new \Exception('No email found in token claims.');
+            }
+    
+            return response()->json(['email' => $email, 'name' => $name], 200);
+        } catch (\Throwable $e) {
+            \Log::error('Google Email Verification Error: ' . $e->getMessage());
+            return response()->json(['error' => 'Invalid Google token'], 400);
+        }
+    }
+    
     // Google login for guests
     public function googleLogin(Request $request)
     {
