@@ -35,24 +35,29 @@ public function index()
             'category' => 'required|string|max:255',
         ]);
     
-        $uploadedFileUrl = Cloudinary::upload($request->file('image')->getRealPath(), [
-            'folder' => 'gallery'
-        ])->getSecurePath();
+        try {
+            $uploadedFileUrl = Cloudinary::upload(
+                $request->file('image')->getRealPath(),
+                ['folder' => 'gallery']
+            )->getSecurePath();
     
-        $image = Gallery::create([
-            'image_path' => $uploadedFileUrl, // ✅ Save Cloudinary URL
-            'title' => $validated['title'],
-            'description' => $validated['description'],
-            'category' => $validated['category'],
-        ]);
+            $image = Gallery::create([
+                'image_path' => $uploadedFileUrl,
+                'title' => $validated['title'],
+                'description' => $validated['description'],
+                'category' => $validated['category'],
+            ]);
     
-        // ✅ Broadcast the correct variable
-        event(new GalleryImageUploaded($image));
+            event(new GalleryImageUploaded($image));
     
-        return response()->json([
-            'message' => 'Image uploaded successfully!',
-            'image' => $image
-        ], 201);
+            return response()->json([
+                'message' => 'Image uploaded successfully!',
+                'image' => $image
+            ], 201);
+        } catch (\Exception $e) {
+            \Log::error('Cloudinary upload failed: ' . $e->getMessage());
+            return response()->json(['message' => 'Image upload failed. ' . $e->getMessage()], 500);
+        }
     }
     
 
