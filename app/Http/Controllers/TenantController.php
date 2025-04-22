@@ -46,6 +46,47 @@ class TenantController extends Controller
         }
     }
     
+    public function getTenantRoomInfo(Request $request)
+    {
+        try {
+            $user = $request->user();
+    
+            if (!$user) {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+    
+            $application = \App\Models\Application::where('email', $user->email)->first();
+            if (!$application) {
+                return response()->json(['error' => 'No application found for this tenant.'], 404);
+            }
+    
+            $unit = \App\Models\Unit::where('unit_code', $application->reservation_details)->first();
+            if (!$unit) {
+                return response()->json(['error' => 'No matching unit found.'], 404);
+            }
+    
+            $images = \App\Models\UnitImage::where('unit_code', $unit->unit_code)->get(['image_path']);
+            $stayTypes = \App\Models\Unit::where('unit_code', $unit->unit_code)
+                ->pluck('stay_type')
+                ->unique()
+                ->values()
+                ->toArray();
+    
+            return response()->json([
+                'unit_code' => $unit->unit_code,
+                'max_capacity' => $unit->capacity,
+                'base_price' => $unit->price,
+                'stay_types' => $stayTypes,
+                'amenities' => explode(',', $unit->amenities ?? ''),
+                'images' => $images,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to fetch tenant room info: ' . $e->getMessage());
+            return response()->json(['error' => 'Unable to fetch room info.'], 500);
+        }
+    }
+    
+    
     public function getTenantCredentials($id)
 {
     try {

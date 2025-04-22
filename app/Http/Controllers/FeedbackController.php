@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Feedback;
 use App\Events\NewFeedbackSubmitted;
+use App\Events\NewAdminNotificationEvent;
+
 class FeedbackController extends Controller
 {
     // Store feedback
@@ -17,7 +19,11 @@ class FeedbackController extends Controller
         ]);
     
         $feedback = Feedback::create($validated);
-    
+    // 🔔 Notify Admin
+event(new NewAdminNotificationEvent(
+    "📝 New feedback received" . ($feedback->user_email ? " from {$feedback->user_email}" : "") . ".",
+    'feedback_received'
+));
         // 🔔 Fire Event
         broadcast(new NewFeedbackSubmitted($feedback))->toOthers();
     

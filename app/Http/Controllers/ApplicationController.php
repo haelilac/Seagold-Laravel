@@ -9,6 +9,7 @@ use App\Models\Application;
 use App\Models\User;
 use App\Models\Unit;
 use App\Events\NewApplicationSubmitted;
+use App\Events\NewAdminNotificationEvent;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class ApplicationController extends Controller
 {
@@ -203,7 +204,11 @@ public function unitsOnly()
 
         // ✅ Fire event AFTER the application is created
         event(new NewApplicationSubmitted($application));
-
+        // 🔔 Fire notification to admin
+        event(new NewAdminNotificationEvent(
+            "📄 New application submitted by {$application->first_name} {$application->last_name}.",
+            'tenant_update'
+        ));
         return response()->json(['message' => 'Application submitted successfully!', 'application' => $application], 201);
     }
     
@@ -266,7 +271,11 @@ public function accept(Request $request, $id)
         $application->status = 'Accepted';
         $application->unit_id = $unitId;
         $application->save();
-
+        // 🔔 Fire notification to admin
+        event(new NewAdminNotificationEvent(
+            "✅ Application for {$application->first_name} {$application->last_name} has been accepted. A tenant account was created.",
+            'tenant_update'
+        ));
         \Log::info('Application Updated', ['application_id' => $application->id, 'unit_id' => $application->unit_id]);
 
         // ✅ Send credentials to the tenant via email using Mailjet

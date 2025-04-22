@@ -10,6 +10,8 @@ use App\Models\Notification;
 use App\Models\User;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use App\Events\NewMaintenanceSubmitted;
+use App\Events\NewAdminNotificationEvent;
+
 class MaintenanceRequestController extends Controller
 {
     // Store a new maintenance requestuse App\Models\Notification; // Import Notification model
@@ -51,28 +53,14 @@ class MaintenanceRequestController extends Controller
         $unitCode = optional($tenant->unit)->unit_code;
         $tenantName = $tenant->name;
     
-        \Log::info('Tenant Details:', [
-            'Name' => $tenantName,
-            'Unit Code' => $unitCode,
-        ]);
-    
-        // Create notifications for all admins only
-        $admins = User::where('role', 'admin')->get();
-        if ($admins->isEmpty()) {
-            \Log::error('No admins found for maintenance request notification.');
-            return response()->json(['message' => 'Maintenance request submitted, but notification failed.'], 500);
-        }
-        
-        foreach ($admins as $admin) {
-            Notification::create([
-                'user_id' => $admin->id, // Admin user ID
-                'title' => 'New Maintenance Request',
-                'message' => "New maintenance request from $tenantName (Unit: $unitCode).",
-                'type' => 'maintenance_request',
-                'related_id' => $maintenanceRequest->id,
-                'is_read' => false,
-            ]);
-        }
+        // 🔔 Broadcast notification to all admins
+        event(new NewAdminNotificationEvent(
+            "🛠️ Maintenance request from $tenantName (Unit: $unitCode)",
+            'maintenance_request'
+        ));
+
+        // fire animation or other client-side effects
+        event(new NewMaintenanceSubmitted($maintenanceRequest));
         
     
         \Log::info('Maintenance request notifications created successfully for all admins.');

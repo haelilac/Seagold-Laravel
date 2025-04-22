@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Carbon\Carbon;
 use App\Models\User;
 use App\Models\Unit;
+use App\Events\NewAdminNotificationEvent;
 class PaymentController extends Controller
 {
 
@@ -136,7 +137,11 @@ class PaymentController extends Controller
     
         // Trigger the payment submitted event
         event(new \App\Events\NewPaymentSubmitted($payment));
-    
+        // ✅ Trigger admin notification
+        event(new NewAdminNotificationEvent(
+            "💰 New payment submitted by {$user->name} for " . Carbon::parse($request->payment_for)->format('F Y') . ".",
+            'payment_alert'
+        ));
         return response()->json([
             'message' => 'Payment recorded successfully!',
             'payment' => $payment,

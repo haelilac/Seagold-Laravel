@@ -27,8 +27,8 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\LocationController;
 use Illuminate\Support\Facades\Http;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
-use App\Http\Controllers\Auth\ForgotPasswordController;
-use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\ForgotPasswordController;
+use App\Http\Controllers\ResetPasswordController;
 
 Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
 Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
@@ -298,4 +298,13 @@ Route::get('/applications-only', [ApplicationController::class, 'applicationsOnl
 Route::get('/units-only', [ApplicationController::class, 'unitsOnly']);
 
 
-Route::middleware('auth:sanctum')->get('/tenant-room-info', [UnitController::class, 'tenantRoomInfo']);
+
+Route::middleware('auth:sanctum')->post('/upload-profile', [UserController::class, 'uploadProfile']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/change-password', [UserController::class, 'changePassword']);
+});
+
+Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+
+Route::middleware('auth:sanctum')->get('/tenant-room-info', [TenantController::class, 'getTenantRoomInfo']);

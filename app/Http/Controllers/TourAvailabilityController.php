@@ -10,6 +10,7 @@ use App\Models\TourAvailability;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use App\Models\Notification;
+use App\Events\NewAdminNotificationEvent;
 
 class TourAvailabilityController extends Controller
 {
@@ -210,7 +211,32 @@ class TourAvailabilityController extends Controller
     
             // Mark slot as booked
             $availability->update(['status' => 'booked']);
+    // ✅ Check if all slots for this date are now booked
+$remainingSlots = TourAvailability::where('date', $validated['date_booked'])
+->where('status', 'available')
+->count();
+
+if ($remainingSlots === 0) {
+// All slots are booked – send notification to admins
+$admins = User::where('role', 'admin')->get();
+foreach ($admins as $admin) {
+    $notif = Notification::create([
+        'user_id' => $admin->id,
+        'title' => 'Fully Booked Day',
+        'message' => "All tour slots for {$validated['date_booked']} are now fully booked.",
+        'type' => 'tour_fully_booked',
+        'is_read' => false,
+    ]);
     
+    broadcast(new NewAdminNotificationEvent(
+        $notif->message,
+        $notif->type,
+        $notif->created_at->format('M d, Y - h:i A')
+    ))->toOthers();
+}
+
+\Log::info("🔔 Notification: Fully booked date - {$validated['date_booked']}");
+}
             // Trigger notification for admin
             $this->createBookingNotification($bookingId);
     
@@ -222,7 +248,6 @@ class TourAvailabilityController extends Controller
     }
     public function createBookingNotification($bookingId)
     {
-        // Fetch booking details
         $booking = DB::table('booked_tour')->where('id', $bookingId)->first();
     
         if (!$booking) {
@@ -230,22 +255,24 @@ class TourAvailabilityController extends Controller
             return;
         }
     
-        // Fetch all admin users
-        $admins = User::where('role', 'admin')->get();
+        $admins = \App\Models\User::where('role', 'admin')->get();
     
         if ($admins->isEmpty()) {
             \Log::error('Failed to create booking notification: No admins found.');
             return;
         }
     
-        // Create notifications for all admins
         foreach ($admins as $admin) {
-            Notification::create([
-                'user_id' => $admin->id, // Assign to each admin
+            $notif = \App\Models\Notification::create([
+                'user_id' => $admin->id,
                 'title' => 'New Tour Booking',
                 'message' => "A new booking has been made by {$booking->name} for {$booking->date_booked} at {$booking->time_slot}.",
+                'type' => 'tour_booking',
                 'is_read' => false,
             ]);
+    
+            // ✅ Broadcast the event
+            broadcast(new \App\Events\NewAdminNotificationEvent($notif))->toOthers();
         }
     
         \Log::info('Booking notifications created successfully for all admins.', ['bookingId' => $bookingId]);
