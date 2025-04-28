@@ -261,7 +261,7 @@ public function unitsOnly()
         try {
             $ocrApiUrl = app()->environment('local') 
                 ? 'http://localhost:9090/validate-receipt/' 
-                : 'https://seagold-python-production.up.railway.app/api/validate-receipt/';
+                : 'https://seagold-python-production.up.railway.app/validate-receipt/';
     
             $ocrResponse = Http::asForm()->post($ocrApiUrl, [
                 'id_type'   => 'gcash',
