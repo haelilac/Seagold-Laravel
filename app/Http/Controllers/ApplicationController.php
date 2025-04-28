@@ -118,7 +118,7 @@ public function unitsOnly()
             $verifiedIdToken = $firebase->verifyIdToken($validated['token']);
             $uid = $verifiedIdToken->getClaim('sub');
             $user = User::where('firebase_uid', $uid)->first();
-            
+        
             if ($user) {
                 return response()->json(['email' => $user->email, 'name' => $user->name]);
             } else {
