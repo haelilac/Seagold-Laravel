@@ -104,7 +104,30 @@ public function unitsOnly()
         }
     }
     
-
+    public function verifyGoogleToken(Request $request)
+    {
+        $validated = $request->validate([
+            'token' => 'required|string', // Ensure token is passed
+            'provider' => 'required|string', // You can validate the provider if necessary
+        ]);
+    
+        // Validate token with Firebase
+        try {
+            $firebase = app('firebase.auth');
+            $verifiedIdToken = $firebase->verifyIdToken($validated['token']);
+            $uid = $verifiedIdToken->getClaim('sub');
+            $user = User::where('firebase_uid', $uid)->first();
+            
+            if ($user) {
+                return response()->json(['email' => $user->email, 'name' => $user->name]);
+            } else {
+                return response()->json(['message' => 'User not found'], 404);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to verify token', 'error' => $e->getMessage()], 400);
+        }
+    }
+    
     // Save a new application
     public function store(Request $request)
     {
