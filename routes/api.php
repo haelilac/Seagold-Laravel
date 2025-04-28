@@ -29,8 +29,10 @@ use Illuminate\Support\Facades\Http;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ResetPasswordController;
-use App\Http\Controllers\AmenityRequestController;  // <<== ADD this
 use App\Http\Controllers\SMSController;
+use App\Http\Controllers\AmenityRequestController;  // <<== ADD this
+
+
 
 Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
 Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
@@ -214,6 +216,9 @@ Route::match(['post'], '/tenants/{id}/send-reminder', [TenantController::class, 
 // Other Routes
 Route::get('/users', [UserController::class, 'index']);
 Route::post('/assign-unit', [UnitController::class, 'assignUnit']);
+Route::put('/units/{unit}/force-occupy', [UnitController::class, 'forceOccupy']);
+
+
 
 // Maintenance Routes
 Route::middleware(['auth:sanctum'])->group(function () {
@@ -313,10 +318,6 @@ Route::middleware('auth:sanctum')->get('/tenant-room-info', [TenantController::c
 
 Route::post('/maintenance-requests/{id}/follow-up', [MaintenanceRequestController::class, 'followUp']);
 
-Route::post('/applications/payment', [ApplicationController::class, 'storePaymentData']);
-Route::post('/validate-receipt', [ApplicationController::class, 'validateReceipt']);
-Route::post('/send-payment-data', [ApplicationController::class, 'storePaymentData']);
-
 
 //Sms reminder
 Route::post('/send-sms-reminder', [SMSController::class, 'sendReminder']);
@@ -329,5 +330,3 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/amenities/approve/{id}', [AmenityRequestController::class, 'approve']);
     Route::put('/amenities/reject/{id}', [AmenityRequestController::class, 'reject']);
 });
-
-Route::put('/units/{id}/force-occupy', [UnitController::class, 'forceOccupy']);
