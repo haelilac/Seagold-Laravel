@@ -106,6 +106,7 @@ public function unitsOnly()
     
     public function verifyGoogleToken(Request $request)
     {
+        // Validate incoming data
         $validated = $request->validate([
             'token' => 'required|string', // Ensure token is passed
             'provider' => 'required|string', // You can validate the provider if necessary
