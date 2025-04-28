@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-use Illuminate\Support\Facades\Http; 
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Hash;
@@ -31,18 +31,19 @@ class ApplicationController extends Controller
         ->withCount(['users as total_users_count'])
         ->get();
     
-        // Preload counts by stay_type and unit_id
+        // Preload user counts by stay_type and unit_id
         $stayTypeCounts = User::selectRaw('unit_id, stay_type, COUNT(*) as count')
+            ->join('units', 'users.unit_id', '=', 'units.id')
             ->groupBy('unit_id', 'stay_type')
             ->get()
             ->keyBy(fn($row) => $row->unit_id . '_' . strtolower($row->stay_type));
-
-        // Then, inject into each unit:
+    
+        // Inject into each unit
         foreach ($units as $unit) {
-            $key = $unit->id . '_' . strtolower($unit->stay_type ?? '');
+            $key = $unit->id . '_' . strtolower($unit->stay_type);
             $unit->same_staytype_users_count = $stayTypeCounts[$key]->count ?? 0;
         }
-
+    
         return response()->json([
             'applications' => $applications,
             'units' => $units,
@@ -69,7 +70,7 @@ public function unitsOnly()
 {
     $units = Unit::select(
         'id', 'unit_code', 'capacity', 'max_capacity', 'occupancy',
-        'price', 'stay_type', 'status' // 🔥 Correct field 'stay_types' not 'stay_type'
+        'price', 'stay_type', 'status'
     )
     ->withCount(['users as total_users_count'])
     ->get();
@@ -82,20 +83,19 @@ public function unitsOnly()
         ->keyBy(fn($row) => $row->unit_id . '_' . strtolower($row->stay_type));
 
     foreach ($units as $unit) {
-        $key = $unit->id . '_' . strtolower($unit->stay_type ?? '');
+        $key = $unit->id . '_' . strtolower($unit->stay_type);
         $unit->same_staytype_users_count = $stayTypeCounts[$key]->count ?? 0;
     }
 
     return response()->json(['units' => $units]);
 }
 
-
     public function getUnits()
     {
         try {
-            $units = Unit::select('id', 'name', 'unit_code', 'stay_type', 'capacity', 'price', 'status')
-            ->withCount(['users as total_users_count'])
-            ->get();
+            $units = Unit::select('id', 'name', 'unit_code', 'capacity', 'price', 'status')
+                         ->withCount(['users as total_users_count']) // 👈 this is the key
+                         ->get();
     
             return response()->json($units);
         } catch (\Exception $e) {
@@ -123,10 +123,6 @@ public function unitsOnly()
             'duration' => 'required|integer',
             'set_price' => 'nullable|numeric',
             'stay_type' => 'required|in:daily,weekly,half-month,monthly',
-            'reservation_fee' => 'required|numeric',
-            'receipt_url' => 'required|string|url',
-            'reference_number' => 'required|string',
-            'payment_amount'   => 'required|numeric',
             'reservation_details' => 'required|string',
             'id_type' => 'required|string',
             'valid_id_url' => 'required|string|url',
@@ -168,7 +164,7 @@ public function unitsOnly()
         // Calculate price based on the stay type
         if ($validated['stay_type'] === 'weekly') {
             // Apply logic for weekly price
-            $setPrice = $unit->price;
+            $setPrice = $unit->price;  // You may apply your own formula for weekly price calculation
         } elseif ($validated['stay_type'] === 'monthly') {
             // Apply logic for monthly price
             $setPrice = $unit->price;  // Use the unit price for monthly
@@ -197,10 +193,6 @@ public function unitsOnly()
             'valid_id' => $validIdPath,
             'status' => $status,
             'stay_type' => $validated['stay_type'],
-            'reference_number' => $validated['reference_number'],
-            'payment_amount'    => $validated['payment_amount'],
-            'reservation_fee' => $validated['reservation_fee'],
-            'receipt_url' => $validated['receipt_url'],
             'set_price' => $setPrice,
             'house_number' => $validated['house_number'],
             'street' => $validated['street'],
@@ -220,124 +212,6 @@ public function unitsOnly()
         return response()->json(['message' => 'Application submitted successfully!', 'application' => $application], 201);
     }
     
-    public function storePaymentData(Request $request)
-    {
-        $validated = $request->validate([
-            'application_id'   => 'required|exists:applications,id',
-            'reference_number' => 'required|string',
-            'amount'           => 'required|numeric',
-        ]);
-    
-        $application = Application::find($validated['application_id']);
-    
-        $application->update([
-            'reference_number' => $validated['reference_number'],
-            'payment_amount'    => $validated['amount'],
-            'payment_date'      => $validated['date_time'],
-        ]);
-    
-        return response()->json(['message' => 'Payment data saved to application successfully!']);
-    }
-    
-
-    public function validateReceipt(Request $request)
-    {
-        if (!$request->hasFile('receipt')) {
-            \Log::warning('⚠️ No receipt file uploaded.', ['request' => $request->all()]);
-            return response()->json(['message' => 'No receipt file uploaded.'], 400);
-        }
-    
-        // Upload receipt to Cloudinary
-        $file = $request->file('receipt');
-        try {
-            $uploadedUrl = Cloudinary::upload($file->getRealPath())->getSecurePath();
-            \Log::info('✅ Receipt uploaded to Cloudinary', ['url' => $uploadedUrl]);
-        } catch (\Exception $e) {
-            \Log::error('❌ Cloudinary Upload Failed', ['error' => $e->getMessage()]);
-            return response()->json(['message' => 'Failed to upload receipt.'], 500);
-        }
-    
-        // Call FastAPI OCR API for receipt validation
-        try {
-            $ocrApiUrl = app()->environment('local') 
-                ? 'http://localhost:9090/validate-receipt/' 
-                : 'https://seagold-python-production.up.railway.app/validate-receipt/';
-    
-            $ocrResponse = Http::asForm()->post($ocrApiUrl, [
-                'id_type'   => 'gcash',
-                'image_url' => $uploadedUrl
-            ]);
-            \Log::info('📨 OCR API Called', ['image_url' => $uploadedUrl]);
-        } catch (\Exception $e) {
-            \Log::error('❌ OCR API Call Failed', ['error' => $e->getMessage()]);
-            return response()->json(['message' => 'OCR service error.'], 500);
-        }
-    
-        if ($ocrResponse->failed()) {
-            \Log::error('❌ OCR Failed to Process Receipt', [
-                'status' => $ocrResponse->status(),
-                'body'   => $ocrResponse->body()
-            ]);
-            return response()->json(['message' => 'OCR failed to process the receipt.'], 500);
-        }
-    
-        $ocrData = $ocrResponse->json();
-        \Log::info('🔎 OCR Response Data', $ocrData);
-    
-        $isMatch = !empty($ocrData['extracted_reference']) && !empty($ocrData['extracted_amount']);
-        if (!$isMatch) {
-            \Log::warning('⚠️ OCR Data Missing Fields', [
-                'expected_fields' => ['extracted_reference', 'extracted_amount'],
-                'received'        => $ocrData
-            ]);
-        }
-    
-        return response()->json([
-            'match' => $isMatch,
-            'ocr_data' => [
-                'extracted_reference' => $ocrData['extracted_reference'] ?? null,
-                'extracted_amount'    => $ocrData['extracted_amount'] ?? null,
-                'extracted_datetime'  => $ocrData['extracted_datetime'] ?? null,
-                'text'                => $ocrData['text'] ?? ''
-            ],
-            'receipt_url' => $uploadedUrl
-        ]);
-    }
-    
-    public function uploadId(Request $request)
-{
-    // Validate that the uploaded file is indeed an image
-    $validated = $request->validate([
-        'file' => 'required|mimes:jpg,jpeg,png,bmp|max:2048',  // 2MB max size
-        'id_type' => 'required|string|max:100',
-    ]);
-
-    // Handle the file upload
-    $file = $request->file('file');
-    $idType = $validated['id_type'];
-
-    // Upload to Cloudinary or local storage
-    try {
-        $uploadedFile = Cloudinary::upload($file->getRealPath(), ['folder' => 'uploads/valid_ids']);
-        $fileUrl = $uploadedFile->getSecurePath();  // Get the URL of the uploaded file
-
-        // You can add further processing, e.g., OCR scanning here
-
-        // Return the file URL along with the id_type in the response
-        return response()->json([
-            'message' => 'ID uploaded successfully',
-            'file_url' => $fileUrl,
-            'id_type' => $idType,
-        ]);
-    } catch (\Exception $e) {
-        // Log and return an error response if upload fails
-        \Log::error('Failed to upload ID', ['error' => $e->getMessage()]);
-        return response()->json(['message' => 'Failed to upload ID. Please try again later.'], 500);
-    }
-}
-
-    
-
 // Accept an application
 public function accept(Request $request, $id)
 {
@@ -345,78 +219,82 @@ public function accept(Request $request, $id)
         'method' => $request->method(),
         'data' => $request->all(),
     ]);
-    
     try {
-        \Log::info('Accept Method Triggered', ['application_id' => $id]);
+        \Log::info('Accept Method Triggered', ['application_id' => $id, 'request_data' => $request->all()]);
 
+        // Find the application
         $application = Application::findOrFail($id);
+
+        // Retrieve the unit_code from reservation_details
         $unitCode = $application->reservation_details;
+
+        // Fetch the unit_id based on the unit_code
         $unit = Unit::where('unit_code', $unitCode)->first();
 
         if (!$unit) {
             \Log::error('Unit Not Found', ['unit_code' => $unitCode]);
-            return response()->json(['message' => 'Unit code not found.'], 400);
+            return response()->json(['message' => 'Unit code not found for the selected unit.'], 400);
         }
 
-        // Check for existing user
-        if (User::where('email', $application->email)->exists()) {
-            return response()->json(['message' => 'User already exists.'], 409);
+        \Log::info('Unit Found', ['unit_id' => $unit->id, 'unit_code' => $unitCode]);
+
+        // Check if a user with this email already exists
+        $existingUser = User::where('email', $application->email)->first();
+        if ($existingUser) {
+            \Log::error('User Already Exists', ['email' => $application->email]);
+            return response()->json(['message' => 'A user with this email already exists.'], 409);
         }
 
-        // Create user
+        // Generate random credentials
         $password = substr(md5(time()), 0, 8);
+
+        // Explicitly cast unit_id to ensure it's passed correctly
+        $unitId = (int) $unit->id;
+
+        // Determine rent price for billing (set_price > 0 ? use it : use unit->price)
+        $finalRentPrice = ($application->set_price && $application->set_price > 0)
+            ? $application->set_price
+            : $unit->price;
+        // Create a new tenant account in the users table
         $user = User::create([
             'name' => $application->first_name . ' ' . $application->last_name,
             'email' => $application->email,
             'password' => Hash::make($password),
-            'unit_id' => $unit->id,
+            'unit_id' => $unitId,
             'role' => 'tenant',
-            'rent_price' => $application->set_price ?: $unit->price,
+            'rent_price' => $finalRentPrice,
         ]);
 
-        // Update application
-        $application->update([
-            'status' => 'Accepted',
-            'unit_id' => $unit->id
-        ]);
+        \Log::info('User Created', ['user_id' => $user->id, 'unit_id' => $user->unit_id]);
 
-        // Try sending email (with error handling)
-        try {
-            $emailContent = "Dear {$application->first_name} {$application->last_name},\n\n"
-                . "Your tenant account has been successfully created.\n\n"
-                . "Login Details:\n"
-                . "Email: {$application->email}\n"
-                . "Password: {$password}\n\n"
-                . "You can now access your account at: ".env('APP_URL')."/login\n\n"
-                . "Thank you,\n"
-                . "Seagold Dormitory Management";
+        // Update the application's status to 'Accepted' and assign the unit_id
+        $application->status = 'Accepted';
+        $application->unit_id = $unitId;
+        $application->save();
+        // 🔔 Fire notification to admin
+        event(new NewAdminNotificationEvent(
+            "✅ Application for {$application->first_name} {$application->last_name} has been accepted. A tenant account was created.",
+            'tenant_update'
+        ));
+        \Log::info('Application Updated', ['application_id' => $application->id, 'unit_id' => $application->unit_id]);
 
-            Mail::raw($emailContent, function ($message) use ($application) {
+        // ✅ Send credentials to the tenant via email using Mailjet
+        Mail::raw("Dear {$application->first_name} {$application->last_name},\n\nYour tenant account has been successfully created.\n\nLogin Details:\nUsername: {$application->email}\nPassword: {$password}\n\nYou can now access your account.\n\nThank you!", 
+            function ($message) use ($application) {
                 $message->to($application->email)
-                       ->subject('Your Tenant Account Details - Seagold Dormitory');
-            });
-            
-            \Log::info('Email sent successfully with credentials');
-        } catch (\Exception $e) {
-            \Log::error('Email failed but account created', [
-                'error' => $e->getMessage(),
-                'credentials' => [
-                    'email' => $application->email,
-                    'password' => $password
-                ]
-            ]);
-        }
+                        ->subject('Your Tenant Account Details - Seagold Dormitory');
+            }
+        );
 
-        return response()->json([
-            'message' => 'Tenant account created successfully.',
-            'email_sent' => !isset($e) // Indicate if email was sent
-        ]);
+        \Log::info('Email Sent Successfully', ['email' => $application->email]);
+
+        return response()->json(['message' => 'Tenant account created successfully, and unit assigned.']);
 
     } catch (\Exception $e) {
         \Log::error('Error accepting application', ['error' => $e->getMessage()]);
         return response()->json([
-            'message' => 'An error occurred',
-            'error' => $e->getMessage()
+            'message' => 'An error occurred while accepting the application.',
+            'error' => $e->getMessage(),
         ], 500);
     }
 }
