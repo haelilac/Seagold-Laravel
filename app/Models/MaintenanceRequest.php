@@ -11,14 +11,18 @@ class MaintenanceRequest extends Model
 
     protected $fillable = [
         'user_id',
+        'category',
         'description',
         'status',
-        'file_path',
         'schedule',
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function files() {
+        return $this->hasMany(MaintenanceFile::class);
     }
 }

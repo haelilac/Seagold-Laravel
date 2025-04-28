@@ -26,6 +26,12 @@ class Unit extends Model
         return $this->hasOne(User::class, 'unit_id', 'id');
     }
 
+    public function images()
+    {
+        return $this->hasMany(UnitImage::class, 'unit_code', 'unit_code');
+    }
+    
+
     public function users()
 {
     return $this->hasMany(User::class, 'unit_id');

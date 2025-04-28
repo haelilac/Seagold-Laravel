@@ -31,6 +31,8 @@ class Application extends Model
         'valid_id',
         'status',
         'stay_type',
+        'reference_number',
+        'payment_amount',
         'set_price',
         'house_number',  
         'street',        

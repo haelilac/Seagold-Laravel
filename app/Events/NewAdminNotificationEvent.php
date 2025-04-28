@@ -40,5 +40,21 @@ class NewAdminNotificationEvent implements ShouldBroadcast
             'time' => $this->time,
         ];
     }
+
+    public function followUp($id)
+{
+    $maintenanceRequest = MaintenanceRequest::with('user.unit')->findOrFail($id);
+
+    $tenantName = $maintenanceRequest->user->name;
+    $unitCode = optional($maintenanceRequest->user->unit)->unit_code;
+
+    // Send follow-up notification
+    event(new NewAdminNotificationEvent(
+        "🔔 Follow-up Reminder: $tenantName (Unit: $unitCode) is requesting an update on Maintenance ID #$id",
+        'maintenance_follow_up'
+    ));
+
+    return response()->json(['message' => 'Follow-up notification sent to admin.']);
+}
 }
 

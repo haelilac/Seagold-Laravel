@@ -29,6 +29,8 @@ use Illuminate\Support\Facades\Http;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ResetPasswordController;
+use App\Http\Controllers\AmenityRequestController;  // <<== ADD this
+use App\Http\Controllers\SMSController;
 
 Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
 Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
@@ -308,3 +310,24 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
 
 Route::middleware('auth:sanctum')->get('/tenant-room-info', [TenantController::class, 'getTenantRoomInfo']);
+
+Route::post('/maintenance-requests/{id}/follow-up', [MaintenanceRequestController::class, 'followUp']);
+
+Route::post('/applications/payment', [ApplicationController::class, 'storePaymentData']);
+Route::post('/validate-receipt', [ApplicationController::class, 'validateReceipt']);
+Route::post('/send-payment-data', [ApplicationController::class, 'storePaymentData']);
+
+
+//Sms reminder
+Route::post('/send-sms-reminder', [SMSController::class, 'sendReminder']);
+
+
+// Amenity Requests
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/amenities/request', [AmenityRequestController::class, 'store']);
+    Route::get('/amenities/requests', [AmenityRequestController::class, 'index']);
+    Route::put('/amenities/approve/{id}', [AmenityRequestController::class, 'approve']);
+    Route::put('/amenities/reject/{id}', [AmenityRequestController::class, 'reject']);
+});
+
+Route::put('/units/{id}/force-occupy', [UnitController::class, 'forceOccupy']);
