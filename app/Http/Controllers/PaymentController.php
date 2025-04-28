@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use App\Models\User;
 use App\Models\Unit;
 use App\Events\NewAdminNotificationEvent;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class PaymentController extends Controller
 {
 
@@ -42,6 +43,8 @@ class PaymentController extends Controller
     
     
     // Store Payment
+    use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+
     public function store(Request $request)
     {
         $user = $request->user();
@@ -64,37 +67,34 @@ class PaymentController extends Controller
         if (!$unitId) {
             return response()->json(['error' => 'Server error', 'details' => 'Tenant has no assigned unit.'], 400);
         }
-        
-        // ✅ Fetch the unit model
+    
+        // Fetch the unit model
         $unit = \App\Models\Unit::find($unitId);
         if (!$unit) {
             return response()->json(['error' => 'Unit not found.'], 404);
         }
-        
-        $unitPrice = $user->rent_price ?? $unit->price ?? 0; // Default to rent_price if available, otherwise fallback to unit price
-        
+    
+        $unitPrice = $user->rent_price ?? $unit->price ?? 0;
+    
+        // Handle the receipt file upload to Cloudinary if exists
+        $receiptPath = null;
+        if ($request->hasFile('receipt')) {
+            $receipt = $request->file('receipt');
+            // Upload the receipt to Cloudinary
+            $upload = Cloudinary::upload($receipt->getRealPath(), [
+                'folder' => 'payments/receipts',  // Folder where the receipts will be stored
+                'resource_type' => 'auto' // Automatically detects file type (image, pdf, etc.)
+            ]);
+    
+            // Save the secure URL for the receipt
+            $receiptPath = $upload->getSecurePath(); // Cloudinary secure URL
+        }
+    
+        // Calculate the total amount based on the stay type
         $stayType = $request->stay_type;
         $duration = $request->duration; // Duration in days
-        
-        // Calculate the total amount based on the stay type
-        switch ($stayType) {
-            case 'daily':
-                $totalAmount = $unitPrice * $duration; // Daily calculation
-                break;
-            case 'weekly':
-                $totalWeeks = ceil($duration / 7); // Calculate weeks
-                $totalAmount = $unitPrice * $totalWeeks; // Weekly calculation
-                break;
-            case 'half-month':
-                $totalAmount = $unit->half_month_price; // Use fixed half-month price
-                break;
-            case 'monthly':
-                $totalAmount = $unitPrice; // Use full unit price for monthly
-                break;
-            default:
-                $totalAmount = $unitPrice; // Default to unit price
-        }
-        
+        $totalAmount = $this->calculateTotalAmount($stayType, $unitPrice, $duration, $unit);
+    
         // Prevent partial payments for non-monthly tenants
         if ($stayType !== 'monthly' && $request->amount < $totalAmount) {
             return response()->json(['error' => 'Partial payments are not allowed for this stay type.'], 400);
@@ -108,19 +108,6 @@ class PaymentController extends Controller
             ], 400);
         }
     
-        // Check if there's an existing pending payment for the same month
-        $hasPending = Payment::where('user_id', $user->id)
-            ->where('payment_period', $request->payment_for)
-            ->where('status', 'Pending')
-            ->exists();
-    
-        if ($hasPending) {
-            return response()->json([
-                'error' => 'Pending Payment Exists',
-                'details' => 'You already have a pending payment for this billing period.'
-            ], 400);
-        }
-    
         // Store payment
         $payment = Payment::create([
             'user_id' => $user->id,
@@ -131,17 +118,13 @@ class PaymentController extends Controller
             'payment_method' => $request->payment_method,
             'reference_number' => $request->reference_number,
             'payment_period' => $request->payment_for,
-            'receipt_path' => $request->hasFile('receipt') ? $request->file('receipt')->store('uploads/receipts', 'public') : null,
+            'receipt_path' => $receiptPath,  // Cloudinary URL for the receipt
             'status' => 'Pending',
         ]);
     
         // Trigger the payment submitted event
         event(new \App\Events\NewPaymentSubmitted($payment));
-        // ✅ Trigger admin notification
-        event(new NewAdminNotificationEvent(
-            "💰 New payment submitted by {$user->name} for " . Carbon::parse($request->payment_for)->format('F Y') . ".",
-            'payment_alert'
-        ));
+        
         return response()->json([
             'message' => 'Payment recorded successfully!',
             'payment' => $payment,
