@@ -125,7 +125,7 @@ class PaymentController extends Controller
         $payment = Payment::create([
             'user_id' => $user->id,
             'unit_id' => $unitId,
-            'amount' => $totalAmount,
+            'amount' => $request->amount,
             'remaining_balance' => $totalAmount - $request->amount,
             'payment_type' => $request->amount < $totalAmount ? 'Partially Paid' : 'Fully Paid',
             'payment_method' => $request->payment_method,
@@ -467,7 +467,6 @@ public function updateStatus($user_id)
     
             // Retrieve all payments made by the user
             $payments = \App\Models\Payment::where('user_id', $tenantId)
-            ->where('status', 'Confirmed')
             ->get();
     
             $unpaidBalances = [];
@@ -482,21 +481,23 @@ public function updateStatus($user_id)
             $startDate = Carbon::parse($application->check_in_date);
             $months = [];
     
-            for ($i = 0; $i < $application->duration; $i++) {
-                $currentMonth = $startDate->copy()->addMonths($i)->format('Y-m-d');
-                $months[] = $currentMonth;
-            }
-    
-            $intervalDays = match($application->stay_type) {
-                'daily' => 1,
-                'weekly' => 7,
-                'half-month' => 15,
-                'monthly' => 30,
+            $months = [];
+
+            $interval = match($application->stay_type) {
+                'daily' => 'addDays',
+                'weekly' => 'addWeeks',
+                'half-month' => function($date, $i) { return $date->copy()->addDays($i * 15); }, // Special case
+                'monthly' => 'addMonths',
+                default => 'addMonths',
             };
-    
+            
             for ($i = 0; $i < $application->duration; $i++) {
-                $paymentDate = $startDate->copy()->addDays($i * $intervalDays)->format('Y-m-d');
-                $months[] = $paymentDate;
+                if (is_callable($interval)) {
+                    $paymentDate = $interval($startDate, $i);
+                } else {
+                    $paymentDate = $startDate->copy()->{$interval}($i);
+                }
+                $months[] = $paymentDate->format('Y-m-d');
             }
     
             // Calculate the unpaid balances for each month
@@ -523,6 +524,7 @@ public function updateStatus($user_id)
                 'due_date' => $dueDate,
                 'check_in_date' => $application->check_in_date,
                 'duration' => $application->duration,
+                'stay_type' => $application->stay_type,
                 'unpaid_balances' => $unpaidBalances,
             ], 200);
         } catch (\Exception $e) {

@@ -130,6 +130,8 @@ class AuthController extends Controller
             $firebase = (new Factory)->withServiceAccount(storage_path('app/firebase-service-account.json'))->createAuth();
             $verifiedToken = $firebase->verifyIdToken($request->token);
     
+            \Log::info('✅ Token Claims:', $verifiedToken->claims()->all());
+    
             $email = $verifiedToken->claims()->get('email');
             $name = $verifiedToken->claims()->get('name');
     
