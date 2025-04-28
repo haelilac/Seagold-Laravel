@@ -304,7 +304,38 @@ public function unitsOnly()
         ]);
     }
     
-    
+    public function uploadId(Request $request)
+{
+    // Validate that the uploaded file is indeed an image
+    $validated = $request->validate([
+        'file' => 'required|mimes:jpg,jpeg,png,bmp|max:2048',  // 2MB max size
+        'id_type' => 'required|string|max:100',
+    ]);
+
+    // Handle the file upload
+    $file = $request->file('file');
+    $idType = $validated['id_type'];
+
+    // Upload to Cloudinary or local storage
+    try {
+        $uploadedFile = Cloudinary::upload($file->getRealPath(), ['folder' => 'uploads/valid_ids']);
+        $fileUrl = $uploadedFile->getSecurePath();  // Get the URL of the uploaded file
+
+        // You can add further processing, e.g., OCR scanning here
+
+        // Return the file URL along with the id_type in the response
+        return response()->json([
+            'message' => 'ID uploaded successfully',
+            'file_url' => $fileUrl,
+            'id_type' => $idType,
+        ]);
+    } catch (\Exception $e) {
+        // Log and return an error response if upload fails
+        \Log::error('Failed to upload ID', ['error' => $e->getMessage()]);
+        return response()->json(['message' => 'Failed to upload ID. Please try again later.'], 500);
+    }
+}
+
     
 
 // Accept an application
