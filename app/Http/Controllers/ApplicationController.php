@@ -10,11 +10,43 @@ use App\Models\User;
 use App\Models\Unit;
 use App\Services\FirebaseService;
 use App\Events\NewApplicationSubmitted;
+use Kreait\Firebase\Auth as FirebaseAuth;
 use App\Events\NewAdminNotificationEvent;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class ApplicationController extends Controller
 {
-    // Fetch all pending applications
+    protected $firebaseAuth;
+
+    public function __construct(FirebaseAuth $firebaseAuth)
+    {
+        $this->firebaseAuth = $firebaseAuth;
+    }
+
+    public function verifyGoogleToken(Request $request)
+    {
+        $validated = $request->validate([
+            'token' => 'required|string',
+            'provider' => 'required|string',
+        ]);
+
+        try {
+            $verifiedIdToken = $this->firebaseAuth->verifyIdToken($validated['token']);
+            $claims = $verifiedIdToken->claims();
+
+            $email = $claims->get('email');
+            $name = $claims->get('name');
+
+            return response()->json([
+                'email' => $email,
+                'name' => $name,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Failed to verify token',
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
     public function index()
     {
         $applications = Application::select(
