@@ -13,32 +13,62 @@ class GoogleVerifyEmailController extends Controller
 
     public function __construct()
     {
-        $firebase = (new Factory)
-            ->withServiceAccount(config('firebase.credentials'));
+        try {
+            Log::info('[Firebase] Initializing service account...');
 
-        $this->auth = $firebase->createAuth();
+            if (!file_exists(storage_path('app/firebase-service-account.json'))) {
+                Log::error('[Firebase] Missing service account JSON!');
+                throw new \Exception('Service account file is missing.');
+            }
+
+            $firebase = (new Factory)
+                ->withServiceAccount(storage_path('app/firebase-service-account.json'));
+
+            $this->auth = $firebase->createAuth();
+
+            Log::info('[Firebase] Firebase Auth initialized successfully.');
+        } catch (\Throwable $e) {
+            Log::error('[Firebase] Initialization error: ' . $e->getMessage());
+            $this->auth = null;
+        }
     }
 
     public function verify(Request $request)
     {
-        $token = $request->input('token');
+        Log::info('[Verify] Incoming request.', $request->all());
+
+        $token = $request->input('token'); // ✅ Only grab token
+        $provider = $request->input('provider'); // ✅ (Optional, safe to have)
 
         if (!$token) {
+            Log::warning('[Verify] No token provided.');
             return response()->json(['error' => 'Token missing.'], 400);
         }
 
+        if (!$this->auth) {
+            Log::error('[Verify] Firebase Auth service not initialized.');
+            return response()->json(['error' => 'Auth service not ready.'], 500);
+        }
+
         try {
+            Log::info('[Verify] Verifying token...');
             $verifiedIdToken = $this->auth->verifyIdToken($token);
-            $firebaseUser = $this->auth->getUser($verifiedIdToken->claims()->get('sub'));
+
+            $uid = $verifiedIdToken->claims()->get('sub');
+            Log::info("[Verify] Token verified. UID: $uid");
+
+            $firebaseUser = $this->auth->getUser($uid);
+            Log::info("[Verify] Firebase user loaded: " . $firebaseUser->email);
 
             return response()->json([
                 'email' => $firebaseUser->email,
                 'name' => $firebaseUser->displayName,
                 'uid' => $firebaseUser->uid,
+                'provider' => $provider, // ✅ If you want to return the provider too
             ]);
         } catch (\Throwable $e) {
-            Log::error('Google token verification failed: ' . $e->getMessage());
-            return response()->json(['error' => 'Invalid or expired token.'], 400);
+            Log::error('[Verify] Token verification error: ' . $e->getMessage());
+            return response()->json(['error' => 'Token invalid or expired.'], 400);
         }
     }
 }
