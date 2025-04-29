@@ -35,12 +35,13 @@ class GoogleVerifyEmailController extends Controller
 
     public function verify(Request $request)
     {
-        Log::info('[Verify] Incoming request to verify Google ID token.');
+        Log::info('[Verify] Incoming request.', $request->all());
 
-        $token = $request->input('token');
+        $token = $request->input('token'); // ✅ Only grab token
+        $provider = $request->input('provider'); // ✅ (Optional, safe to have)
 
         if (!$token) {
-            Log::warning('[Verify] No token provided in request.');
+            Log::warning('[Verify] No token provided.');
             return response()->json(['error' => 'Token missing.'], 400);
         }
 
@@ -63,6 +64,7 @@ class GoogleVerifyEmailController extends Controller
                 'email' => $firebaseUser->email,
                 'name' => $firebaseUser->displayName,
                 'uid' => $firebaseUser->uid,
+                'provider' => $provider, // ✅ If you want to return the provider too
             ]);
         } catch (\Throwable $e) {
             Log::error('[Verify] Token verification error: ' . $e->getMessage());
