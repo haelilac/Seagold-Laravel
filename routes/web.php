@@ -5,6 +5,7 @@ use App\Events\MyEvent;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
+use App\Http\Controllers\HashCheckerController;
 
 
 /*
@@ -20,3 +21,7 @@ use Illuminate\Support\Facades\Response;
 Route::get('/sanctum/csrf-cookie', function () {
     return response()->json(['message' => 'CSRF cookie set']);
 });
+
+
+Route::get('/hash-checker', [HashCheckerController::class, 'showForm'])->name('hash.form');
+Route::post('/hash-checker', [HashCheckerController::class, 'checkHash'])->name('hash.check');
