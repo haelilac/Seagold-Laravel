@@ -329,6 +329,8 @@ Route::post('/maintenance-requests/{id}/follow-up', [MaintenanceRequestControlle
 //Sms reminder
 Route::post('/send-sms-reminder', [SMSController::class, 'sendReminder']);
 
+// Upload a pricing image
+Route::post('/unit-images/pricing-upload', [UnitController::class, 'uploadPricingImage']);
 
 // Amenity Requests
 Route::middleware('auth:sanctum')->group(function () {
