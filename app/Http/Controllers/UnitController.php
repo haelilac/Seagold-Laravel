@@ -79,7 +79,31 @@ class UnitController extends Controller
         $units = Unit::where('status', 'available')->get();
         return response()->json($units);
     }
-
+    public function getRoomPricing(Request $request)
+    {
+        $unitCode = $request->query('unit_code');
+        $stayType = $request->query('stay_type');
+    
+        if (!$unitCode || !$stayType) {
+            return response()->json(['message' => 'Missing parameters'], 400);
+        }
+    
+        $unit = Unit::where('unit_code', $unitCode)
+                    ->where('stay_type', $stayType)
+                    ->first();
+    
+        if (!$unit) {
+            return response()->json(['message' => 'No pricing data found'], 404);
+        }
+    
+        return response()->json([[
+            'unit_code' => $unit->unit_code,
+            'stay_type' => $unit->stay_type,
+            'price'     => $unit->price,
+            'capacity'  => $unit->capacity,
+        ]]);
+    }
+    
     // ✅ Update Unit Status (available/unavailable)
     public function updateUnitStatus(Request $request, $id)
     {
