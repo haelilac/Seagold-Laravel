@@ -52,6 +52,8 @@ Route::get('/cities/{provinceCode}', [LocationController::class, 'getCities']);
 Route::get('/barangays/{cityMunCode}', [LocationController::class, 'getBarangays']);
 
 Route::post('/validate-receipt', [PaymentController::class, 'validateReceipt']);
+Route::post('/validate-receipt', [ApplicationController::class, 'validateReceipt']);
+
 Route::post('/upload-id', function (Request $request) {
     Log::info('Upload ID API called');
 
