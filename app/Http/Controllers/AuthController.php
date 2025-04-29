@@ -13,47 +13,39 @@ use Illuminate\Support\Facades\Log;
 class AuthController extends Controller
 {
 
+
     private function createFirebaseAuth()
     {
         return (new Factory)
-            ->withServiceAccount([
-                'type' => env('FIREBASE_TYPE'),
-                'project_id' => env('FIREBASE_PROJECT_ID'),
-                'private_key_id' => env('FIREBASE_PRIVATE_KEY_ID'),
-                'private_key' => str_replace('\\n', "\n", env('FIREBASE_PRIVATE_KEY')),
-                'client_email' => env('FIREBASE_CLIENT_EMAIL'),
-                'client_id' => env('FIREBASE_CLIENT_ID'),
-                'auth_uri' => env('FIREBASE_AUTH_URI'),
-                'token_uri' => env('FIREBASE_TOKEN_URI'),
-                'auth_provider_x509_cert_url' => env('FIREBASE_AUTH_PROVIDER_X509_CERT_URL'),
-                'client_x509_cert_url' => env('FIREBASE_CLIENT_X509_CERT_URL'),
-            ])
+            ->withServiceAccount(storage_path('app/firebase-service-account.json')) // 👈 your JSON path
             ->createAuth();
     }
-
+    
     public function verifyGoogleEmail(Request $request)
     {
         $request->validate(['token' => 'required']);
-
+    
         try {
-            $firebase = $this->createFirebaseAuth(); // 🔥 USE THIS
+            $firebase = $this->createFirebaseAuth(); // 🔥 initialize Firebase Auth
             $verifiedToken = $firebase->verifyIdToken($request->token);
-
+    
             Log::info('✅ Token Claims:', $verifiedToken->claims()->all());
-
+    
             $email = $verifiedToken->claims()->get('email');
             $name = $verifiedToken->claims()->get('name');
-
+    
             if (!$email) {
                 throw new \Exception('No email found in token claims.');
             }
-
+    
             return response()->json(['email' => $email, 'name' => $name], 200);
         } catch (\Throwable $e) {
             Log::error('Google Email Verification Error: ' . $e->getMessage());
             return response()->json(['error' => 'Invalid Google token'], 400);
         }
     }
+
+
 
     public function googleLogin(Request $request)
     {

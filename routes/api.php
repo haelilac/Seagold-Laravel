@@ -33,7 +33,8 @@ use App\Http\Controllers\SMSController;
 use App\Http\Controllers\AmenityRequestController;  // <<== ADD this
 use App\Http\Controllers\Api\GoogleVerifyEmailController;
 
-Route::post('/google-verify-email', [GoogleVerifyEmailController::class, 'verify']);
+Route::post('/google-verify-email', [AuthController::class, 'verifyGoogleEmail']);
+
 Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
 Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
 
