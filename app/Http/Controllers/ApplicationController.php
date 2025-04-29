@@ -15,12 +15,6 @@ use App\Events\NewAdminNotificationEvent;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class ApplicationController extends Controller
 {
-    protected $firebaseAuth;
-
-    public function __construct(FirebaseAuth $firebaseAuth)
-    {
-        $this->firebaseAuth = $firebaseAuth;
-    }
 
     public function verifyGoogleToken(Request $request)
     {
