@@ -140,7 +140,7 @@ class UnitController extends Controller
             $unit->images = DB::table('unit_images')
                 ->where('unit_code', $unit->unit_code)
                 ->get();
-
+            $unit->pricing_image = $unit->images->firstWhere('is_pricing', true);
             $unit->monthly_users_count = $monthly_users_count;
             $unit->base_price = $base_unit ? $base_unit->price : null;
 
@@ -248,6 +248,29 @@ class UnitController extends Controller
         return response()->json(['message' => 'Unit deleted successfully!']);
     }
 
+    public function uploadPricingImage(Request $request)
+{
+    $validated = $request->validate([
+        'image' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+        'unit_code' => 'required|string',
+    ]);
+
+    $uploadedUrl = Cloudinary::upload($request->file('image')->getRealPath(), [
+        'folder' => 'pricing_images'
+    ])->getSecurePath();
+
+    DB::table('unit_images')->insert([
+        'unit_code' => $validated['unit_code'],
+        'image_path' => $uploadedUrl,
+        'is_pricing' => true,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    return response()->json(['message' => 'Pricing image uploaded!', 'image_url' => $uploadedUrl]);
+}
+
+
     // ✅ Tenant Room Info API
     public function tenantRoomInfo(Request $request)
     {
@@ -275,5 +298,3 @@ class UnitController extends Controller
         ]);
     }
 }
-// ✅ End of UnitController.php
-// ✅ End of file
