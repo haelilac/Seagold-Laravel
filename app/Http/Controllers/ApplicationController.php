@@ -273,6 +273,7 @@ public function unitsOnly()
             'ocr_data' => [
                 'extracted_reference' => $ocrData['reference'] ?? null,
                 'extracted_amount'    => $ocrData['amount'] ?? null,
+                'receipt_url'         => $ocrData['receipt_url'] ?? null,
                 'text'                => $ocrData['text'] ?? ''
             ],
         ]);
