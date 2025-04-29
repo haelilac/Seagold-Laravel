@@ -12,6 +12,82 @@ use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
+
+    private function createFirebaseAuth()
+    {
+        return (new Factory)
+            ->withServiceAccount([
+                'type' => env('FIREBASE_TYPE'),
+                'project_id' => env('FIREBASE_PROJECT_ID'),
+                'private_key_id' => env('FIREBASE_PRIVATE_KEY_ID'),
+                'private_key' => str_replace('\\n', "\n", env('FIREBASE_PRIVATE_KEY')),
+                'client_email' => env('FIREBASE_CLIENT_EMAIL'),
+                'client_id' => env('FIREBASE_CLIENT_ID'),
+                'auth_uri' => env('FIREBASE_AUTH_URI'),
+                'token_uri' => env('FIREBASE_TOKEN_URI'),
+                'auth_provider_x509_cert_url' => env('FIREBASE_AUTH_PROVIDER_X509_CERT_URL'),
+                'client_x509_cert_url' => env('FIREBASE_CLIENT_X509_CERT_URL'),
+            ])
+            ->createAuth();
+    }
+
+    public function verifyGoogleEmail(Request $request)
+    {
+        $request->validate(['token' => 'required']);
+
+        try {
+            $firebase = $this->createFirebaseAuth(); // 🔥 USE THIS
+            $verifiedToken = $firebase->verifyIdToken($request->token);
+
+            Log::info('✅ Token Claims:', $verifiedToken->claims()->all());
+
+            $email = $verifiedToken->claims()->get('email');
+            $name = $verifiedToken->claims()->get('name');
+
+            if (!$email) {
+                throw new \Exception('No email found in token claims.');
+            }
+
+            return response()->json(['email' => $email, 'name' => $name], 200);
+        } catch (\Throwable $e) {
+            Log::error('Google Email Verification Error: ' . $e->getMessage());
+            return response()->json(['error' => 'Invalid Google token'], 400);
+        }
+    }
+
+    public function googleLogin(Request $request)
+    {
+        $request->validate(['token' => 'required']);
+
+        try {
+            $firebase = $this->createFirebaseAuth(); // 🔥 USE THIS
+            $verifiedToken = $firebase->verifyIdToken($request->token);
+
+            $email = $verifiedToken->claims()->get('email');
+            $name = $verifiedToken->claims()->get('name');
+
+            if (!$email) {
+                throw new \Exception('No email found in token claims.');
+            }
+
+            DB::table('guest_user')->updateOrInsert(
+                ['user_email' => $email],
+                ['name' => $name, 'password' => bcrypt('default_password'), 'visit_count' => DB::raw('visit_count + 1')]
+            );
+
+            $user = User::firstOrCreate(
+                ['email' => $email],
+                ['name' => $name, 'password' => bcrypt('default_password')]
+            );
+
+            $token = $user->createToken('GoogleLogin')->plainTextToken;
+
+            return response()->json(['access_token' => $token, 'email' => $email], 200);
+        } catch (\Throwable $e) {
+            Log::error('Google Login Error: ' . $e->getMessage());
+            return response()->json(['error' => 'Invalid Google token'], 400);
+        }
+    }
     // Validate token and differentiate between roles
     public function validateToken(Request $request)
     {
@@ -34,6 +110,7 @@ class AuthController extends Controller
     
         return response()->json(['error' => 'Invalid user type'], 403);
     }
+    
     
 
     // Refresh Token Endpoint
@@ -120,64 +197,6 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             Log::error('Register Guest Error: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to create account.'], 500);
-        }
-    }
-    public function verifyGoogleEmail(Request $request)
-    {
-        $request->validate(['token' => 'required']);
-    
-        try {
-            $firebase = (new Factory)->withServiceAccount(storage_path('app/firebase-service-account.json'))->createAuth();
-            $verifiedToken = $firebase->verifyIdToken($request->token);
-    
-            \Log::info('✅ Token Claims:', $verifiedToken->claims()->all());
-    
-            $email = $verifiedToken->claims()->get('email');
-            $name = $verifiedToken->claims()->get('name');
-    
-            if (!$email) {
-                throw new \Exception('No email found in token claims.');
-            }
-    
-            return response()->json(['email' => $email, 'name' => $name], 200);
-        } catch (\Throwable $e) {
-            \Log::error('Google Email Verification Error: ' . $e->getMessage());
-            return response()->json(['error' => 'Invalid Google token'], 400);
-        }
-    }
-    
-    // Google login for guests
-    public function googleLogin(Request $request)
-    {
-        $request->validate(['token' => 'required']);
-
-        try {
-            $firebase = (new Factory)->withServiceAccount(storage_path('app/firebase-service-account.json'))->createAuth();
-            $verifiedToken = $firebase->verifyIdToken($request->token);
-
-            $email = $verifiedToken->claims()->get('email');
-            $name = $verifiedToken->claims()->get('name');
-
-            if (!$email) {
-                throw new \Exception('No email found in token claims.');
-            }
-
-            $guest = DB::table('guest_user')->updateOrInsert(
-                ['user_email' => $email],
-                ['name' => $name, 'password' => bcrypt('default_password'), 'visit_count' => DB::raw('visit_count + 1')]
-            );
-
-            $user = User::firstOrCreate(
-                ['email' => $email],
-                ['name' => $name, 'password' => bcrypt('default_password')]
-            );
-
-            $token = $user->createToken('GoogleLogin')->plainTextToken;
-
-            return response()->json(['access_token' => $token, 'email' => $email], 200);
-        } catch (\Throwable $e) {
-            Log::error('Google Login Error: ' . $e->getMessage());
-            return response()->json(['error' => 'Invalid Google token'], 400);
         }
     }
 
