@@ -252,23 +252,17 @@ public function unitsOnly()
         $file = $request->file('receipt');
     
         try {
-            $uploadedUrl = Cloudinary::upload($file->getRealPath())->getSecurePath();
-            \Log::info('✅ Receipt uploaded to Cloudinary', ['url' => $uploadedUrl]);
-        } catch (\Exception $e) {
-            \Log::error('❌ Cloudinary Upload Failed', ['error' => $e->getMessage()]);
-            return response()->json(['message' => 'Failed to upload receipt.'], 500);
-        }
-    
-        try {
             $ocrApiUrl = app()->environment('local') 
-            ? 'http://localhost:9090/validate-receipt/' 
-            : 'https://seagold-python-production.up.railway.app/validate-receipt/';
-        
-        $ocrResponse = Http::asForm()->post($ocrApiUrl, [
-            'id_type'   => 'gcash',
-            'image_url' => $uploadedUrl
-        ]);
-            \Log::info('📨 OCR API Called', ['image_url' => $uploadedUrl]);
+                ? 'http://localhost:9090/validate-receipt/' 
+                : 'https://seagold-python-production.up.railway.app/validate-receipt/';
+    
+            $ocrResponse = Http::attach(
+                'receipt', // name expected by Python
+                file_get_contents($file->getRealPath()),
+                $file->getClientOriginalName()
+            )->post($ocrApiUrl);
+    
+            \Log::info('📨 OCR API Called to validate receipt.');
         } catch (\Exception $e) {
             \Log::error('❌ OCR API Call Failed', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'OCR service error.'], 500);
@@ -284,29 +278,18 @@ public function unitsOnly()
     
         $ocrData = $ocrResponse->json();
     
-        // Log full OCR data for debugging
-        \Log::info('🔎 OCR Response Data', $ocrData);
-    
-        $isMatch = !empty($ocrData['extracted_reference']) && !empty($ocrData['extracted_amount']);
-    
-        if (!$isMatch) {
-            \Log::warning('⚠️ OCR Data Missing Fields', [
-                'expected_fields' => ['extracted_reference', 'extracted_amount'],
-                'received'        => $ocrData
-            ]);
-        }
+        \Log::info('🔎 OCR Receipt Response', $ocrData);
     
         return response()->json([
-            'match' => $isMatch,
+            'match' => $ocrData['match'] ?? false,
             'ocr_data' => [
-                'extracted_reference' => $ocrData['extracted_reference'] ?? null,
-                'extracted_amount'    => $ocrData['extracted_amount'] ?? null,
-                'extracted_datetime'  => $ocrData['extracted_datetime'] ?? null,
+                'extracted_reference' => $ocrData['reference'] ?? null,
+                'extracted_amount'    => $ocrData['amount'] ?? null,
                 'text'                => $ocrData['text'] ?? ''
             ],
-            'receipt_url' => $uploadedUrl   // ✅ Include this!
         ]);
     }
+    
     
     
 
