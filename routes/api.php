@@ -31,7 +31,6 @@ use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ResetPasswordController;
 use App\Http\Controllers\SMSController;
 use App\Http\Controllers\AmenityRequestController;  // <<== ADD this
-use App\Http\Controllers\Api\GoogleVerifyEmailController;
 
 Route::post('/google-verify-email', [AuthController::class, 'verifyGoogleEmail']);
 
