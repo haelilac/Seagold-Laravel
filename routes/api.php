@@ -33,7 +33,7 @@ use App\Http\Controllers\SMSController;
 use App\Http\Controllers\AmenityRequestController;  // <<== ADD this
 use App\Http\Controllers\Api\GoogleVerifyEmailController;
 
-
+Route::post('/google-verify-email', [GoogleVerifyEmailController::class, 'verify']);
 Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
 Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
 
@@ -163,7 +163,6 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::post('/google-login', [AuthController::class, 'googleLogin'])->middleware('guest');
 Route::post('/register-guest', action: [AuthController::class, 'registerGuest']);
 Route::post('/google-login-guest', [AuthController::class, 'googleLogin']); // For actual login
-Route::post('/google-verify-email', [AuthController::class, 'verifyGoogleEmail']);
 
 Route::get('/places', [PlaceController::class, 'index']);
 
