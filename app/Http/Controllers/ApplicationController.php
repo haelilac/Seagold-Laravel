@@ -109,8 +109,9 @@ public function unitsOnly()
     public function store(Request $request)
     {
         \Log::info('Store method triggered', $request->all());
-        // Validate incoming request
-        $validated = $request->validate([
+    
+        // Validate inputs (this still works for FormData)
+        $request->validate([
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
             'middle_name' => 'nullable|string|max:100',
@@ -126,99 +127,86 @@ public function unitsOnly()
             'reservation_fee' => 'required|numeric',
             'receipt_url' => 'required|string|url',
             'reference_number' => 'required|string',
-            'payment_amount'   => 'required|numeric',
+            'payment_amount' => 'required|numeric',
             'reservation_details' => 'required|string',
             'id_type' => 'required|string',
             'valid_id_url' => 'required|string|url',
             'house_number' => 'required|string|max:50',
             'street' => 'required|string|max:100',
-            'barangay' => 'required|string|max:100', // Make sure it's expecting a name, not a code
-            'city' => 'required|string|max:100', // Ensure it's a name
-            'province' => 'required|string|max:100', // Ensure it's a name
+            'barangay' => 'required|string|max:100',
+            'city' => 'required|string|max:100',
+            'province' => 'required|string|max:100',
             'zip_code' => 'required|string|max:4',
-        ]);    
+        ]);
     
-        // Handle file upload
-        $validIdPath = $validated['valid_id_url'];
-        // Check if user has already applied
-        $existingApplication = Application::where('email', $validated['email'])->first();
-
-        if ($existingApplication) {
+        // Avoid duplicate applications
+        if (Application::where('email', $request->input('email'))->exists()) {
             return response()->json([
                 'message' => 'You have already submitted an application.',
             ], 409);
         }
-
-        // Fetch the unit_id and set_price from the units table using reservation_details (unit_code)
-        $unit = Unit::where('unit_code', $validated['reservation_details'])->first();
     
+        // Resolve unit from reservation_details
+        $unit = Unit::where('unit_code', $request->input('reservation_details'))->first();
         if (!$unit) {
             return response()->json(['message' => 'Unit code not found.'], 400);
         }
     
-        // Auto-set status and set_price based on unit
-        $status = 'pending'; // Default status for new applications
-
-        $tenantCount = User::where('unit_id', $unit->id)->count() + 1; // +1 to include current applicant
-
-    // Fallback to unit price if set_price is not provided from the frontend
-    $setPrice = $validated['set_price'] ?? null;
-
-    if (empty($setPrice)) {
-        // Calculate price based on the stay type
-        if ($validated['stay_type'] === 'weekly') {
-            // Apply logic for weekly price
-            $setPrice = $unit->price;
-        } elseif ($validated['stay_type'] === 'monthly') {
-            // Apply logic for monthly price
-            $setPrice = $unit->price;  // Use the unit price for monthly
-        } elseif ($validated['stay_type'] === 'half-month') {
-            // Apply logic for half-month price
-            $setPrice = $unit->price * 0.5;
-        } else {
-            $setPrice = $unit->price;  // Default price if stay type isn't specified
+        // Determine pricing
+        $setPrice = $request->input('set_price');
+        if (empty($setPrice)) {
+            $stayType = $request->input('stay_type');
+            if ($stayType === 'half-month') {
+                $setPrice = $unit->price * 0.5;
+            } else {
+                $setPrice = $unit->price;
+            }
         }
-    }
-        // Create the application
+    
+        // Create application
         $application = Application::create([
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
-            'middle_name' => $validated['middle_name'],
-            'email' => $validated['email'],
-            'birthdate' => $validated['birthdate'],
-            'facebook_profile' => $validated['facebook_profile'],
-            'contact_number' => $validated['contact_number'],
-            'occupation' => $validated['occupation'],
-            'check_in_date' => $validated['check_in_date'],
-            'duration' => $validated['duration'],
-            'reservation_details' => $validated['reservation_details'], // Store unit_code
-            'unit_id' => $unit->id, // Save unit_id
-            'id_type' => $validated['id_type'],
-            'valid_id' => $validIdPath,
-            'status' => $status,
-            'stay_type' => $validated['stay_type'],
-            'reference_number' => $validated['reference_number'],
-            'payment_amount'    => $validated['payment_amount'],
-            'reservation_fee' => $validated['reservation_fee'],
-            'receipt_url' => $validated['receipt_url'],
+            'first_name' => $request->input('first_name'),
+            'last_name' => $request->input('last_name'),
+            'middle_name' => $request->input('middle_name'),
+            'email' => $request->input('email'),
+            'birthdate' => $request->input('birthdate'),
+            'facebook_profile' => $request->input('facebook_profile'),
+            'contact_number' => $request->input('contact_number'),
+            'occupation' => $request->input('occupation'),
+            'check_in_date' => $request->input('check_in_date'),
+            'duration' => $request->input('duration'),
+            'reservation_details' => $request->input('reservation_details'),
+            'unit_id' => $unit->id,
+            'id_type' => $request->input('id_type'),
+            'valid_id' => $request->input('valid_id_url'),
+            'status' => 'pending',
+            'stay_type' => $request->input('stay_type'),
+            'reference_number' => $request->input('reference_number'),
+            'payment_amount' => $request->input('payment_amount'),
+            'reservation_fee' => $request->input('reservation_fee'),
+            'receipt_url' => $request->input('receipt_url'),
             'set_price' => $setPrice,
-            'house_number' => $validated['house_number'],
-            'street' => $validated['street'],
-            'barangay' => $validated['barangay'], // ✅ Store the Barangay Name
-            'city' => $validated['city'], // ✅ Store the City/Municipality Name
-            'province' => $validated['province'], // ✅ Store the Province Name
-            'zip_code' => $validated['zip_code'],
+            'house_number' => $request->input('house_number'),
+            'street' => $request->input('street'),
+            'barangay' => $request->input('barangay'),
+            'city' => $request->input('city'),
+            'province' => $request->input('province'),
+            'zip_code' => $request->input('zip_code'),
         ]);
-
-        // ✅ Fire event AFTER the application is created
+    
+        // Trigger events
         event(new NewApplicationSubmitted($application));
-        // 🔔 Fire notification to admin
         event(new NewAdminNotificationEvent(
             "📄 New application submitted by {$application->first_name} {$application->last_name}.",
             'tenant_update'
         ));
-        return response()->json(['message' => 'Application submitted successfully!', 'application' => $application], 201);
+    
+        return response()->json([
+            'message' => 'Application submitted successfully!',
+            'application' => $application,
+        ], 201);
     }
+    
     
     public function storePaymentData(Request $request)
     {
