@@ -108,7 +108,8 @@ public function unitsOnly()
     // Save a new application
     public function store(Request $request)
     {
-        \Log::info('Store method triggered', $request->all());
+        try {
+            \Log::info('Store method triggered', $request->all());
     
         // Validate inputs (this still works for FormData)
         $request->validate([
@@ -205,8 +206,17 @@ public function unitsOnly()
             'message' => 'Application submitted successfully!',
             'application' => $application,
         ], 201);
+
+        return response()->json(['message' => 'Application submitted successfully!', 'application' => $application], 201);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        \Log::error('❌ Validation failed', ['errors' => $e->errors()]);
+        return response()->json(['message' => 'Validation failed', 'errors' => $e->errors()], 422);
+    } catch (\Exception $e) {
+        \Log::error('❌ Application store error', ['exception' => $e->getMessage()]);
+        return response()->json(['message' => 'Something went wrong.'], 500);
     }
-    
+}
     
     public function storePaymentData(Request $request)
     {
