@@ -131,7 +131,7 @@ public function unitsOnly()
             'payment_amount' => 'required|numeric',
             'reservation_details' => 'required|string',
             'id_type' => 'required|string',
-            'valid_id_url' => 'required|string|url',
+            'valid_id' => 'required|string|url',
             'house_number' => 'required|string|max:50',
             'street' => 'required|string|max:100',
             'barangay' => 'required|string|max:100',
@@ -165,6 +165,7 @@ public function unitsOnly()
         }
     
         // Create application
+
         $application = Application::create([
             'first_name' => $request->input('first_name'),
             'last_name' => $request->input('last_name'),
@@ -179,13 +180,13 @@ public function unitsOnly()
             'reservation_details' => $request->input('reservation_details'),
             'unit_id' => $unit->id,
             'id_type' => $request->input('id_type'),
-            'valid_id' => $request->input('valid_id_url'),
+            'valid_id' => $request->input('valid_id_url'), // Store the valid ID URL here
+            'receipt_url' => $request->input('receipt_url'), // Store the receipt URL here
             'status' => 'pending',
             'stay_type' => $request->input('stay_type'),
             'reference_number' => $request->input('reference_number'),
             'payment_amount' => $request->input('payment_amount'),
             'reservation_fee' => $request->input('reservation_fee'),
-            'receipt_url' => $request->input('receipt_url'),
             'set_price' => $setPrice,
             'house_number' => $request->input('house_number'),
             'street' => $request->input('street'),
@@ -194,6 +195,7 @@ public function unitsOnly()
             'province' => $request->input('province'),
             'zip_code' => $request->input('zip_code'),
         ]);
+
     
         // Trigger events
         event(new NewApplicationSubmitted($application));
