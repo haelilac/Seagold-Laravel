@@ -180,7 +180,7 @@ public function unitsOnly()
             'reservation_details' => $request->input('reservation_details'),
             'unit_id' => $unit->id,
             'id_type' => $request->input('id_type'),
-            'valid_id' => $request->input('valid_id_url'), // Store the valid ID URL here
+            'valid_id' => $request->input('valid_id'), // Store the valid ID URL here
             'receipt_url' => $request->input('receipt_url'), // Store the receipt URL here
             'status' => 'pending',
             'stay_type' => $request->input('stay_type'),
