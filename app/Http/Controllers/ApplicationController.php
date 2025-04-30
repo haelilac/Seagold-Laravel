@@ -111,112 +111,115 @@ public function unitsOnly()
         try {
             \Log::info('Store method triggered', $request->all());
     
-        // Validate inputs (this still works for FormData)
-        $request->validate([
-            'first_name' => 'required|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'middle_name' => 'nullable|string|max:100',
-            'email' => 'required|email|unique:applications,email',
-            'birthdate' => 'required|date|before:today',
-            'facebook_profile' => 'nullable|url|max:255',
-            'contact_number' => 'required|string|max:20',
-            'occupation' => 'required|string|max:100',
-            'check_in_date' => 'required|date',
-            'duration' => 'required|integer',
-            'set_price' => 'nullable|numeric',
-            'stay_type' => 'required|in:daily,weekly,half-month,monthly',
-            'reservation_fee' => 'required|numeric',
-            'receipt_url' => 'required|string|url',
-            'reference_number' => 'required|string',
-            'payment_amount' => 'required|numeric',
-            'reservation_details' => 'required|string',
-            'id_type' => 'required|string',
-            'valid_id_url' => 'required|string|url',
-            'house_number' => 'required|string|max:50',
-            'street' => 'required|string|max:100',
-            'barangay' => 'required|string|max:100',
-            'city' => 'required|string|max:100',
-            'province' => 'required|string|max:100',
-            'zip_code' => 'required|string|max:4',
-        ]);
+            // Validate inputs (this still works for FormData)
+            $request->validate([
+                'first_name' => 'required|string|max:100',
+                'last_name' => 'required|string|max:100',
+                'middle_name' => 'nullable|string|max:100',
+                'email' => 'required|email|unique:applications,email',
+                'birthdate' => 'required|date|before:today',
+                'facebook_profile' => 'nullable|url|max:255',
+                'contact_number' => 'required|string|max:20',
+                'occupation' => 'required|string|max:100',
+                'check_in_date' => 'required|date',
+                'duration' => 'required|integer',
+                'set_price' => 'nullable|numeric',
+                'stay_type' => 'required|in:daily,weekly,half-month,monthly',
+                'reservation_fee' => 'required|numeric',
+                'receipt_url' => 'required|string|url',
+                'reference_number' => 'required|string',
+                'payment_amount' => 'required|numeric',
+                'reservation_details' => 'required|string',
+                'id_type' => 'required|string',
+                'valid_id_url' => 'required|string|url', // This should be the field used for valid ID image URL
+                'valid_id' => 'nullable|string|url', // Optional if valid_id_url is used
+                'house_number' => 'required|string|max:50',
+                'street' => 'required|string|max:100',
+                'barangay' => 'required|string|max:100',
+                'city' => 'required|string|max:100',
+                'province' => 'required|string|max:100',
+                'zip_code' => 'required|string|max:4',
+            ]);
     
-        // Avoid duplicate applications
-        if (Application::where('email', $request->input('email'))->exists()) {
-            return response()->json([
-                'message' => 'You have already submitted an application.',
-            ], 409);
-        }
-    
-        // Resolve unit from reservation_details
-        $unit = Unit::where('unit_code', $request->input('reservation_details'))->first();
-        if (!$unit) {
-            return response()->json(['message' => 'Unit code not found.'], 400);
-        }
-    
-        // Determine pricing
-        $setPrice = $request->input('set_price');
-        if (empty($setPrice)) {
-            $stayType = $request->input('stay_type');
-            if ($stayType === 'half-month') {
-                $setPrice = $unit->price * 0.5;
-            } else {
-                $setPrice = $unit->price;
+            // Avoid duplicate applications
+            if (Application::where('email', $request->input('email'))->exists()) {
+                return response()->json([
+                    'message' => 'You have already submitted an application.',
+                ], 409);
             }
+    
+            // Resolve unit from reservation_details
+            $unit = Unit::where('unit_code', $request->input('reservation_details'))->first();
+            if (!$unit) {
+                return response()->json(['message' => 'Unit code not found.'], 400);
+            }
+    
+            // Determine pricing
+            $setPrice = $request->input('set_price');
+            if (empty($setPrice)) {
+                $stayType = $request->input('stay_type');
+                if ($stayType === 'half-month') {
+                    $setPrice = $unit->price * 0.5;
+                } else {
+                    $setPrice = $unit->price;
+                }
+            }
+    
+            // Use valid_id_url (valid ID URL) for valid_id
+            $validIdUrl = $request->input('valid_id_url') ?: $request->input('valid_id');
+    
+            // Create application
+            $application = Application::create([
+                'first_name' => $request->input('first_name'),
+                'last_name' => $request->input('last_name'),
+                'middle_name' => $request->input('middle_name'),
+                'email' => $request->input('email'),
+                'birthdate' => $request->input('birthdate'),
+                'facebook_profile' => $request->input('facebook_profile'),
+                'contact_number' => $request->input('contact_number'),
+                'occupation' => $request->input('occupation'),
+                'check_in_date' => $request->input('check_in_date'),
+                'duration' => $request->input('duration'),
+                'reservation_details' => $request->input('reservation_details'),
+                'unit_id' => $unit->id,
+                'id_type' => $request->input('id_type'),
+                'valid_id' => $validIdUrl, // Store the valid_id URL (either valid_id or valid_id_url)
+                'status' => 'pending',
+                'stay_type' => $request->input('stay_type'),
+                'reference_number' => $request->input('reference_number'),
+                'payment_amount' => $request->input('payment_amount'),
+                'reservation_fee' => $request->input('reservation_fee'),
+                'receipt_url' => $request->input('receipt_url'),
+                'set_price' => $setPrice,
+                'house_number' => $request->input('house_number'),
+                'street' => $request->input('street'),
+                'barangay' => $request->input('barangay'),
+                'city' => $request->input('city'),
+                'province' => $request->input('province'),
+                'zip_code' => $request->input('zip_code'),
+            ]);
+    
+            // Trigger events
+            event(new NewApplicationSubmitted($application));
+            event(new NewAdminNotificationEvent(
+                "📄 New application submitted by {$application->first_name} {$application->last_name}.",
+                'tenant_update'
+            ));
+    
+            return response()->json([
+                'message' => 'Application submitted successfully!',
+                'application' => $application,
+            ], 201);
+    
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('❌ Validation failed', ['errors' => $e->errors()]);
+            return response()->json(['message' => 'Validation failed', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            \Log::error('❌ Application store error', ['exception' => $e->getMessage()]);
+            return response()->json(['message' => 'Something went wrong.'], 500);
         }
-    
-        // Create application
-        $application = Application::create([
-            'first_name' => $request->input('first_name'),
-            'last_name' => $request->input('last_name'),
-            'middle_name' => $request->input('middle_name'),
-            'email' => $request->input('email'),
-            'birthdate' => $request->input('birthdate'),
-            'facebook_profile' => $request->input('facebook_profile'),
-            'contact_number' => $request->input('contact_number'),
-            'occupation' => $request->input('occupation'),
-            'check_in_date' => $request->input('check_in_date'),
-            'duration' => $request->input('duration'),
-            'reservation_details' => $request->input('reservation_details'),
-            'unit_id' => $unit->id,
-            'id_type' => $request->input('id_type'),
-            'valid_id' => $request->input('valid_id_url'),
-            'status' => 'pending',
-            'stay_type' => $request->input('stay_type'),
-            'reference_number' => $request->input('reference_number'),
-            'payment_amount' => $request->input('payment_amount'),
-            'reservation_fee' => $request->input('reservation_fee'),
-            'receipt_url' => $request->input('receipt_url'),
-            'set_price' => $setPrice,
-            'house_number' => $request->input('house_number'),
-            'street' => $request->input('street'),
-            'barangay' => $request->input('barangay'),
-            'city' => $request->input('city'),
-            'province' => $request->input('province'),
-            'zip_code' => $request->input('zip_code'),
-        ]);
-    
-        // Trigger events
-        event(new NewApplicationSubmitted($application));
-        event(new NewAdminNotificationEvent(
-            "📄 New application submitted by {$application->first_name} {$application->last_name}.",
-            'tenant_update'
-        ));
-    
-        return response()->json([
-            'message' => 'Application submitted successfully!',
-            'application' => $application,
-        ], 201);
-
-        return response()->json(['message' => 'Application submitted successfully!', 'application' => $application], 201);
-
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        \Log::error('❌ Validation failed', ['errors' => $e->errors()]);
-        return response()->json(['message' => 'Validation failed', 'errors' => $e->errors()], 422);
-    } catch (\Exception $e) {
-        \Log::error('❌ Application store error', ['exception' => $e->getMessage()]);
-        return response()->json(['message' => 'Something went wrong.'], 500);
     }
-}
+    
     
     public function storePaymentData(Request $request)
     {
