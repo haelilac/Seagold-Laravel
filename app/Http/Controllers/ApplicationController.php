@@ -132,6 +132,7 @@ public function unitsOnly()
             'reservation_details' => 'required|string',
             'id_type' => 'required|string',
             'valid_id_url' => 'required|string|url',
+            'valid_id' => 'required|string|url',
             'house_number' => 'required|string|max:50',
             'street' => 'required|string|max:100',
             'barangay' => 'required|string|max:100',
