@@ -29,7 +29,6 @@ class Application extends Model
         'unit_id',
         'id_type',
         'valid_id',
-        'receipt_url',
         'status',
         'stay_type',
         'reference_number',
