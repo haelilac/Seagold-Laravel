@@ -376,7 +376,7 @@ public function accept(Request $request, $id)
                 . "Email: {$application->email}\n"
                 . "Password: {$password}\n\n"
                 . $breakdown . "\n\n"
-                . "You can now access your account at: " . env('APP_URL') . "/login\n\n"
+                . "You can now access your account at: https://www.seagold-dormitory.com/login\n\n"
                 . "Thank you,\n"
                 . "Seagold Dormitory Management";
 
