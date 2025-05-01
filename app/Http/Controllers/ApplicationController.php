@@ -154,15 +154,7 @@ public function unitsOnly()
         }
     
         // Determine pricing
-        $setPrice = $request->input('set_price');
-        if (empty($setPrice)) {
-            $stayType = $request->input('stay_type');
-            if ($stayType === 'half-month') {
-                $setPrice = $unit->price * 0.5;
-            } else {
-                $setPrice = $unit->price;
-            }
-        }
+        $setPrice = null; 
     
         // Create application
         $application = Application::create([
@@ -325,7 +317,7 @@ public function accept(Request $request, $id)
             'password' => Hash::make($password),
             'unit_id' => $unit->id,
             'role' => 'tenant',
-            'rent_price' => $application->set_price ?: $unit->price,
+            'rent_price' => $application->set_price ?? $unit->price,
         ]);
 
         // Update application
