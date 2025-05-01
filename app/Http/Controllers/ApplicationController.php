@@ -9,6 +9,7 @@ use App\Models\Application;
 use App\Models\User;
 use App\Models\Unit;
 use App\Events\NewApplicationSubmitted;
+use Carbon\Carbon;
 use App\Events\NewAdminNotificationEvent;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class ApplicationController extends Controller
@@ -286,13 +287,14 @@ public function unitsOnly()
     
 
 // Accept an application
+// Accept an application
 public function accept(Request $request, $id)
 {
     \Log::info('🟢 POST /accept route hit!', [
         'method' => $request->method(),
         'data' => $request->all(),
     ]);
-    
+
     try {
         \Log::info('Accept Method Triggered', ['application_id' => $id]);
 
@@ -312,13 +314,15 @@ public function accept(Request $request, $id)
 
         // Create user
         $password = substr(md5(time()), 0, 8);
+        $pricePerUnit = $application->set_price ?? $unit->price;
+
         $user = User::create([
             'name' => $application->first_name . ' ' . $application->last_name,
             'email' => $application->email,
             'password' => Hash::make($password),
             'unit_id' => $unit->id,
             'role' => 'tenant',
-            'rent_price' => $application->set_price ?? $unit->price,
+            'rent_price' => $pricePerUnit,
         ]);
 
         // Update application
@@ -327,23 +331,62 @@ public function accept(Request $request, $id)
             'unit_id' => $unit->id
         ]);
 
-        // Try sending email (with error handling)
+        // Email breakdown logic
+        $startDate = Carbon::parse($application->check_in_date);
+        $duration = (int) $application->duration;
+        $stayType = strtolower($application->stay_type);
+        $totalAmount = 0;
+        $rangeText = '';
+        $breakdown = '';
+
+        switch ($stayType) {
+            case 'monthly':
+                $endDate = $startDate->copy()->addMonths($duration);
+                $rangeText = "from " . $startDate->format('F j') . " to " . $endDate->format('F j, Y');
+                $totalAmount = $pricePerUnit * $duration;
+                $breakdown = "Your monthly bill {$rangeText} is ₱" . number_format($pricePerUnit) . " per month.";
+                break;
+            case 'weekly':
+                $endDate = $startDate->copy()->addWeeks($duration);
+                $rangeText = "from " . $startDate->format('l, F j') . " to " . $endDate->format('l, F j, Y');
+                $totalAmount = $pricePerUnit * $duration;
+                $breakdown = "Your weekly bill {$rangeText} is ₱" . number_format($pricePerUnit) . " per week and a total of ₱" . number_format($totalAmount) . ".";
+                break;
+            case 'daily':
+                $endDate = $startDate->copy()->addDays($duration);
+                $rangeText = "from " . $startDate->format('l, F j') . " to " . $endDate->format('l, F j, Y');
+                $totalAmount = $pricePerUnit * $duration;
+                $breakdown = "Your daily bill {$rangeText} is ₱" . number_format($pricePerUnit) . " per day and a total of ₱" . number_format($totalAmount) . ".";
+                break;
+            case 'half-month':
+                $endDate = $startDate->copy()->addDays($duration);
+                $rangeText = "from " . $startDate->format('F j') . " to " . $endDate->format('F j, Y');
+                $totalAmount = $pricePerUnit;
+                $breakdown = "Your half-month bill {$rangeText} is ₱" . number_format($pricePerUnit) . ".";
+                break;
+            default:
+                $breakdown = "Stay type not recognized.";
+        }
+
+        // Send email
         try {
             $emailContent = "Dear {$application->first_name} {$application->last_name},\n\n"
                 . "Your tenant account has been successfully created.\n\n"
                 . "Login Details:\n"
                 . "Email: {$application->email}\n"
                 . "Password: {$password}\n\n"
-                . "You can now access your account at: ".env('APP_URL')."/login\n\n"
+                . $breakdown . "\n\n"
+                . "You can now access your account at: https://www.seagold-dormitory.com/login\n\n"
                 . "Thank you,\n"
                 . "Seagold Dormitory Management";
 
+                
             Mail::raw($emailContent, function ($message) use ($application) {
                 $message->to($application->email)
-                       ->subject('Your Tenant Account Details - Seagold Dormitory');
+                        ->subject('Your Tenant Account Details - Seagold Dormitory');
             });
-            
-            \Log::info('Email sent successfully with credentials');
+
+            \Log::info('Email sent successfully with credentials and breakdown');
         } catch (\Exception $e) {
             \Log::error('Email failed but account created', [
                 'error' => $e->getMessage(),
@@ -356,7 +399,7 @@ public function accept(Request $request, $id)
 
         return response()->json([
             'message' => 'Tenant account created successfully.',
-            'email_sent' => !isset($e) // Indicate if email was sent
+            'email_sent' => !isset($e) // Indicates if email was sent
         ]);
 
     } catch (\Exception $e) {
@@ -367,6 +410,7 @@ public function accept(Request $request, $id)
         ], 500);
     }
 }
+
 
 public function update(Request $request, $id)
 {
