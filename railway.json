@@ -6,7 +6,7 @@
   "deploy": {
     "runtime": "V2",
     "numReplicas": 1,
-    "startCommand": "php -S 0.0.0.0:9000 -t public",
+    "startCommand": "php artisan config:cache && php -S 0.0.0.0:9000 -t public",
     "sleepApplication": false,
     "multiRegionConfig": {
       "asia-southeast1-eqsg3a": {
