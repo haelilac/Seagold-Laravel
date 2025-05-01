@@ -56,7 +56,8 @@ public function applicationsOnly()
     $applications = Application::select(
         'id', 'first_name', 'middle_name', 'last_name', 'email',
         'contact_number', 'check_in_date', 'duration', 'reservation_details',
-        'valid_id', 'status', 'stay_type', 'set_price'
+        'valid_id', 'receipt_url',
+        'status', 'stay_type', 'set_price'
     )
     ->where('status', 'pending')
     ->get();
