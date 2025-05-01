@@ -380,6 +380,7 @@ public function accept(Request $request, $id)
                 . "Thank you,\n"
                 . "Seagold Dormitory Management";
 
+                
             Mail::raw($emailContent, function ($message) use ($application) {
                 $message->to($application->email)
                         ->subject('Your Tenant Account Details - Seagold Dormitory');
