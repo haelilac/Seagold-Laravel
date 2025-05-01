@@ -26,6 +26,7 @@ class Application extends Model
         'check_in_date',
         'duration',
         'reservation_details',
+        'receipt_url', 
         'unit_id',
         'id_type',
         'valid_id',
