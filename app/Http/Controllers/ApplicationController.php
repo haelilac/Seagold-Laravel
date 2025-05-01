@@ -12,6 +12,7 @@ use App\Events\NewApplicationSubmitted;
 use Carbon\Carbon;
 use App\Events\NewAdminNotificationEvent;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use App\Services\SMSService;
 class ApplicationController extends Controller
 {
     // Fetch all pending applications
@@ -385,6 +386,15 @@ public function accept(Request $request, $id)
                 $message->to($application->email)
                         ->subject('Your Tenant Account Details - Seagold Dormitory');
             });
+            // ✅ Send SMS after email
+            if (!empty($application->contact_number)) {
+                SMSService::send(
+                    $application->contact_number,
+                    "Hi {$application->first_name}, this is Seagold Dormitory. Congratulations! Your tenant application has been accepted. You may now log in using your account. Welcome aboard!"
+                );
+                \Log::info("✅ SMS sent to {$application->contact_number}");
+            }
+
 
             \Log::info('Email sent successfully with credentials and breakdown');
         } catch (\Exception $e) {

@@ -9,6 +9,7 @@ use App\Models\Notification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Broadcast;
+use App\Services\SMSService;
 
 class SendPaymentReminders extends Command
 {
@@ -20,10 +21,7 @@ class SendPaymentReminders extends Command
         $today = Carbon::now()->startOfDay();
         $threeDaysFromNow = $today->copy()->addDays(3);
 
-        // 1. Send reminders for payments due in 3 days
         $this->sendUpcomingPaymentReminders($threeDaysFromNow);
-
-        // 2. Send reminders for overdue payments
         $this->sendOverduePaymentReminders($today);
 
         return 0;
@@ -34,13 +32,12 @@ class SendPaymentReminders extends Command
         $tenants = User::where('role', 'tenant')
             ->whereDoesntHave('payments', function ($query) use ($dueDate) {
                 $query->whereDate('payment_period', $dueDate)
-                      ->where('status', 'confirmed'); // Ensure only unpaid payments are considered
+                      ->where('status', 'confirmed');
             })
             ->with('unit')
             ->get();
 
         foreach ($tenants as $tenant) {
-            // Save notification in the database
             Notification::create([
                 'user_id' => $tenant->id,
                 'title' => 'Payment Reminder',
@@ -48,7 +45,6 @@ class SendPaymentReminders extends Command
                 'is_read' => false,
             ]);
 
-            // Send email reminder
             Mail::raw(
                 "Dear {$tenant->name}, your payment is due on {$dueDate->toDateString()}. Please submit it before the due date.",
                 function ($message) use ($tenant) {
@@ -56,56 +52,61 @@ class SendPaymentReminders extends Command
                 }
             );
 
-            // Log the reminder for the console
+            if (!empty($tenant->phone_number)) {
+                SMSService::sendBillNotice(
+                    $tenant->name,
+                    $tenant->phone_number,
+                    $tenant->unit->price ?? 0,
+                    $dueDate
+                );
+            }
+
             $this->info("Upcoming payment reminder sent to: {$tenant->email}");
         }
     }
 
     private function sendOverduePaymentReminders($today)
     {
-        // Fetch tenants with overdue payments or no payment records at all
         $tenants = User::where('role', 'tenant')
             ->where(function ($query) use ($today) {
                 $query->whereHas('payments', function ($subQuery) use ($today) {
                     $subQuery->where('status', '!=', 'confirmed')
-                             ->whereDate('payment_period', '<', $today); // Overdue payments
+                             ->whereDate('payment_period', '<', $today);
                 })
-                ->orWhereDoesntHave('payments'); // Tenants with no payment records
+                ->orWhereDoesntHave('payments');
             })
-            ->with('unit') // Include unit details
+            ->with('unit', 'payments')
             ->get();
-    
+
         foreach ($tenants as $tenant) {
-            $message = null;
-    
-            if ($tenant->payments->isEmpty()) {
-                // No payment records exist
-                $message = "Your payment for the period {$latestOverdue->payment_period} is overdue. Please pay as soon as possible to avoid penalties.";
-            } else {
-                // Payments exist but overdue
-                $latestOverdue = $tenant->payments->last();
-                $message = "Your payment for the period {$latestOverdue->payment_period} is overdue. Please pay as soon as possible to avoid penalties.";
-            }
-    
-            // Save notification in the database
+            $latestOverdue = $tenant->payments->last();
+            $period = $latestOverdue->payment_period ?? 'a previous period';
+
+            $message = "Your payment for the period {$period} is overdue. Please pay as soon as possible to avoid penalties.";
+
             Notification::create([
                 'user_id' => $tenant->id,
                 'title' => 'Overdue Payment Reminder',
                 'message' => $message,
                 'is_read' => false,
             ]);
-    
-            // Send email reminder
+
             Mail::raw(
                 "Dear {$tenant->name}, {$message}",
                 function ($message) use ($tenant) {
                     $message->to($tenant->email)->subject('Overdue Payment Reminder');
                 }
             );
-    
-            // Log the reminder for the console
+
+            if (!empty($tenant->phone_number)) {
+                SMSService::sendOverdueNotice(
+                    $tenant->name,
+                    $tenant->phone_number,
+                    $period
+                );
+            }
+
             $this->info("Overdue payment reminder sent to: {$tenant->email}");
         }
     }
-    
 }
