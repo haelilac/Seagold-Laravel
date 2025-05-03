@@ -16,11 +16,6 @@ class GoogleVerifyEmailController extends Controller
         try {
             Log::info('[Firebase] Initializing service account...');
 
-            if (!file_exists(storage_path('app/firebase-service-account.json'))) {
-                Log::error('[Firebase] Missing service account JSON!');
-                throw new \Exception('Service account file is missing.');
-            }
-
             $firebase = (new Factory)->withServiceAccount([
                 'type' => env('FIREBASE_TYPE'),
                 'project_id' => env('FIREBASE_PROJECT_ID'),
@@ -33,7 +28,7 @@ class GoogleVerifyEmailController extends Controller
                 'auth_provider_x509_cert_url' => env('FIREBASE_AUTH_PROVIDER_X509_CERT_URL'),
                 'client_x509_cert_url' => env('FIREBASE_CLIENT_X509_CERT_URL'),
             ]);
-            
+
             $this->auth = $firebase->createAuth();
 
             Log::info('[Firebase] Firebase Auth initialized successfully.');
