@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
 use App\Http\Controllers\HashCheckerController;
 
-
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -22,4 +21,3 @@ Route::get('/sanctum/csrf-cookie', function () {
     return response()->json(['message' => 'CSRF cookie set']);
 });
 
-Route::get('login-admin-tenant', [AuthController::class, 'showLoginForm'])->name('login-admin-tenant');

@@ -1,5 +1,5 @@
 <?php
-namespace App\Http\Controllers;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
@@ -31,7 +31,6 @@ use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ResetPasswordController;
 use App\Http\Controllers\SMSController;
 use App\Http\Controllers\AmenityRequestController;
-use App\Http\Controllers\GoogleVerifyEmailController;
 
 
 
@@ -42,7 +41,8 @@ Route::get('/test', function () {
     return response()->json(['status' => 'Laravel Backend is Working!']);
 });
 
-Route::post('/google-verify-email', [GoogleVerifyEmailController::class, 'verify']);
+Route::post('/google-verify-email', [ApplicationController::class, 'googleVerifyEmail']);
+
 
 Route::middleware('auth:sanctum')->post('/auth/validate-token', [AuthController::class, 'validateToken']);
 Route::middleware('auth:sanctum')->post('/auth/refresh-token', [AuthController::class, 'refreshToken']);
@@ -167,7 +167,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Guest Authentication Routes
 Route::post('/google-login', [AuthController::class, 'googleLogin'])->middleware('guest');
-Route::post('/register-guest', action: [AuthController::class, 'registerGuest']);
+Route::post('/register-guest', [AuthController::class, 'registerGuest']);
 Route::post('/google-login-guest', [AuthController::class, 'googleLogin']); // For actual login
 
 Route::get('/places', [PlaceController::class, 'index']);
