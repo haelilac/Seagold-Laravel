@@ -266,7 +266,9 @@ public function googleVerifyEmail(Request $request)
     }
 
     try {
-        $auth = app(FirebaseAuth::class);
+        $auth = (new Factory)
+        ->withServiceAccount(storage_path('app/firebase-service-account.json'))
+        ->createAuth();
         $verifiedIdToken = $auth->verifyIdToken($token);
         $uid = $verifiedIdToken->claims()->get('sub');
         $firebaseUser = $auth->getUser($uid);
