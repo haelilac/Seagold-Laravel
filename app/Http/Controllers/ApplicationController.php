@@ -12,6 +12,8 @@ use App\Events\NewApplicationSubmitted;
 use Carbon\Carbon;
 use App\Events\NewAdminNotificationEvent;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use Kreait\Firebase\Auth as FirebaseAuth;
+use Kreait\Firebase\Exception\Auth\InvalidToken;
 class ApplicationController extends Controller
 {
     // Fetch all pending applications
@@ -278,7 +280,10 @@ public function googleVerifyEmail(Request $request)
         \Log::error('❌ Invalid Google token: ' . $e->getMessage());
         return response()->json(['error' => 'Invalid Google token'], 400);
     } catch (\Exception $e) {
-        \Log::error('❌ Google token verification failed: ' . $e->getMessage());
+        \Log::error('❌ Google token verification failed', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
         return response()->json(['error' => 'Token verification error'], 500);
     }
 }
