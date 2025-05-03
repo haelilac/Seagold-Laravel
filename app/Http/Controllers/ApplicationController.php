@@ -257,15 +257,15 @@ public function unitsOnly()
 }
 public function googleVerifyEmail(Request $request)
 {
-    $idToken = $request->input('idToken');
+    $token = $request->input('token'); // frontend should send { token: '...' }
 
-    if (!$idToken) {
+    if (!$token) {
         return response()->json(['error' => 'Missing ID token'], 400);
     }
 
     try {
         $auth = app(FirebaseAuth::class);
-        $verifiedIdToken = $auth->verifyIdToken($idToken);
+        $verifiedIdToken = $auth->verifyIdToken($token);
         $uid = $verifiedIdToken->claims()->get('sub');
         $firebaseUser = $auth->getUser($uid);
 
@@ -282,6 +282,7 @@ public function googleVerifyEmail(Request $request)
         return response()->json(['error' => 'Token verification error'], 500);
     }
 }
+
     public function storePaymentData(Request $request)
     {
         $validated = $request->validate([
