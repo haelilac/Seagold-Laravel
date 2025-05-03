@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Kreait\Firebase\Factory;
 use Illuminate\Support\Facades\Log;
-
+use Kreait\Firebase\Auth as FirebaseAuth;
 class AuthController extends Controller
 {
 
