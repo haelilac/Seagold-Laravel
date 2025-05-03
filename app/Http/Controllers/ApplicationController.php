@@ -50,50 +50,7 @@ class ApplicationController extends Controller
         ]);
     }
 
-    public function googleVerifyEmail(Request $request)
-{
-    \Log::info('✅ googleVerifyEmail endpoint hit');
     
-    // Get the token from the request
-    $token = $request->input('token');
-    \Log::info('📦 Token received: ' . substr($token, 0, 30)); // Log partial token for debugging
-
-    if (!$token) {
-        \Log::warning('⚠️ Missing ID token');
-        return response()->json(['error' => 'Missing ID token'], 400);
-    }
-
-    try {
-        // Firebase Auth instance
-        $auth = app(FirebaseAuth::class);
-        \Log::info('🔐 Firebase auth loaded');
-        
-        // Verify the ID token with Firebase
-        $verifiedIdToken = $auth->verifyIdToken($token);
-        \Log::info('✅ Token verified');
-
-        // Get the UID of the user from the token
-        $uid = $verifiedIdToken->claims()->get('sub');
-        
-        // Fetch the user from Firebase using the UID
-        $firebaseUser = $auth->getUser($uid);
-        \Log::info('👤 Firebase user: ' . $firebaseUser->email);
-
-        // Return the user data
-        return response()->json([
-            'uid' => $firebaseUser->uid,
-            'email' => $firebaseUser->email,
-            'name' => $firebaseUser->displayName,
-        ]);
-    } catch (\Throwable $e) {
-        \Log::error('❌ googleVerifyEmail exception', [
-            'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-        return response()->json(['error' => 'Token verification error'], 500);
-    }
-}
-
 // Fetch only applications
 public function applicationsOnly()
 {
