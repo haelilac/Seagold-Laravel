@@ -1,5 +1,5 @@
 <?php
-
+namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
@@ -34,6 +34,7 @@ use App\Http\Controllers\AmenityRequestController;
 use App\Http\Controllers\GoogleVerifyEmailController;
 
 
+
 Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
 Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
 
@@ -42,7 +43,6 @@ Route::get('/test', function () {
 });
 
 Route::post('/google-verify-email', [GoogleVerifyEmailController::class, 'verify']);
-
 
 Route::middleware('auth:sanctum')->post('/auth/validate-token', [AuthController::class, 'validateToken']);
 Route::middleware('auth:sanctum')->post('/auth/refresh-token', [AuthController::class, 'refreshToken']);
