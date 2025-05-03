@@ -37,19 +37,22 @@ class AuthController extends Controller
     public function verifyGoogleEmail(Request $request)
     {
         $request->validate(['token' => 'required']);
-    
+        
         try {
             $firebase = $this->createFirebaseAuth(); // 🔥 initialize Firebase Auth
             $verifiedToken = $firebase->verifyIdToken($request->token);
     
-            Log::info('✅ Token Claims:', $verifiedToken->claims()->all());
+            Log::info('✅ Token Claims:', $verifiedToken->claims()->all()); // Log token claims
     
             $email = $verifiedToken->claims()->get('email');
             $name = $verifiedToken->claims()->get('name');
     
             if (!$email) {
+                Log::error('❌ No email found in token claims.');
                 throw new \Exception('No email found in token claims.');
             }
+    
+            Log::info("✅ Google Email Verified: $email");
     
             return response()->json(['email' => $email, 'name' => $name], 200);
         } catch (\Throwable $e) {
@@ -57,7 +60,7 @@ class AuthController extends Controller
             return response()->json(['error' => 'Invalid Google token'], 400);
         }
     }
-
+    
 
 
     public function googleLogin(Request $request)
