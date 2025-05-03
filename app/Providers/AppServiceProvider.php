@@ -12,7 +12,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(\Kreait\Firebase\Auth::class, function ($app) {
             $factory = (new Factory)
-                ->withServiceAccount(config('firebase.credentials'))
+                ->withServiceAccount(config('firebase'))
                 ->withProjectId(env('FIREBASE_PROJECT_ID'));
     
             return $factory->createAuth();
