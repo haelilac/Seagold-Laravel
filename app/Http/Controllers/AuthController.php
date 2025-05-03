@@ -34,8 +34,10 @@ class AuthController extends Controller
             ->createAuth();
     }
     
+    
     public function verifyGoogleEmail(Request $request)
     {
+        
         $request->validate(['token' => 'required']);
     
         try {
