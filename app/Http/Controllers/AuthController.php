@@ -7,70 +7,48 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Kreait\Firebase\Factory;
 use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Auth as FirebaseAuth;
+
 class AuthController extends Controller
 {
+    protected $firebase;
 
-
-    private function createFirebaseAuth()
+    public function __construct(FirebaseAuth $firebase)
     {
-        $serviceAccount = [
-            'type' => env('FIREBASE_TYPE'),
-            'project_id' => env('FIREBASE_PROJECT_ID'),
-            'private_key_id' => env('FIREBASE_PRIVATE_KEY_ID'),
-            'private_key' => str_replace("\\n", "\n", env('FIREBASE_PRIVATE_KEY')),
-            'client_email' => env('FIREBASE_CLIENT_EMAIL'),
-            'client_id' => env('FIREBASE_CLIENT_ID'),
-            'auth_uri' => env('FIREBASE_AUTH_URI'),
-            'token_uri' => env('FIREBASE_TOKEN_URI'),
-            'auth_provider_x509_cert_url' => env('FIREBASE_AUTH_PROVIDER_X509_CERT_URL'),
-            'client_x509_cert_url' => env('FIREBASE_CLIENT_X509_CERT_URL'),
-        ];
-    
-        return (new Factory)
-            ->withServiceAccount($serviceAccount)
-            ->createAuth();
+        $this->firebase = $firebase;
     }
-    
+
     public function verifyGoogleEmail(Request $request)
     {
         $request->validate(['token' => 'required']);
-        
+
         try {
-            $firebase = $this->createFirebaseAuth(); // 🔥 initialize Firebase Auth
-            $verifiedToken = $firebase->verifyIdToken($request->token);
-    
-            Log::info('✅ Token Claims:', $verifiedToken->claims()->all()); // Log token claims
-    
+            $verifiedToken = $this->firebase->verifyIdToken($request->token);
+            Log::info('✅ Token Claims:', $verifiedToken->claims()->all());
+
             $email = $verifiedToken->claims()->get('email');
             $name = $verifiedToken->claims()->get('name');
-    
+
             if (!$email) {
                 Log::error('❌ No email found in token claims.');
                 throw new \Exception('No email found in token claims.');
             }
-    
+
             Log::info("✅ Google Email Verified: $email");
-    
             return response()->json(['email' => $email, 'name' => $name], 200);
         } catch (\Throwable $e) {
             Log::error('Google Email Verification Error: ' . $e->getMessage());
             return response()->json(['error' => 'Invalid Google token'], 400);
         }
     }
-    
-
 
     public function googleLogin(Request $request)
     {
         $request->validate(['token' => 'required']);
 
         try {
-            $firebase = $this->createFirebaseAuth(); // 🔥 USE THIS
-            $verifiedToken = $firebase->verifyIdToken($request->token);
-
+            $verifiedToken = $this->firebase->verifyIdToken($request->token);
             $email = $verifiedToken->claims()->get('email');
             $name = $verifiedToken->claims()->get('name');
 
@@ -96,84 +74,66 @@ class AuthController extends Controller
             return response()->json(['error' => 'Invalid Google token'], 400);
         }
     }
-    // Validate token and differentiate between roles
+
     public function validateToken(Request $request)
     {
         $user = Auth::guard('sanctum')->user();
-        
         if (!$user) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
-    
-        if ($user->role === 'admin' || $user->role === 'tenant') {
+
+        if (in_array($user->role, ['admin', 'tenant'])) {
             return response()->json(['role' => $user->role], 200);
         }
-    
-        // Handle guest user logic if necessary
+
         $guestUser = DB::table('guest_user')->where('user_email', $user->email)->first();
-        
         if ($guestUser) {
             return response()->json(['role' => 'guest_user'], 200);
         }
-    
+
         return response()->json(['error' => 'Invalid user type'], 403);
     }
-    
-    
 
-    // Refresh Token Endpoint
     public function refreshToken(Request $request)
     {
         $user = Auth::guard('sanctum')->user();
         if (!$user) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
-    
-        // Revoke the old token
+
         $user->tokens()->delete();
-    
-        // Create a new token
         $newToken = $user->createToken('API Token', ['admin-tenant'])->plainTextToken;
-    
+
         return response()->json(['access_token' => $newToken], 200);
     }
-    
 
+    public function login(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string|min:4',
+        ]);
 
+        $user = User::where('email', $request->email)->first();
 
-// Login for admin/tenant
-public function login(Request $request)
-{
-    $request->validate([
-        'email' => 'required|email',
-        'password' => 'required|string|min:4',
-    ]);
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json(['error' => 'Invalid credentials'], 401);
+        }
 
-    // Find the user by email
-    $user = User::where('email', $request->email)->first();
+        if ($user->status === 'terminated') {
+            return response()->json(['error' => 'Your account has been terminated.'], 403);
+        }
 
-    // Check if user exists and passwords match
-    if (!$user || !Hash::check($request->password, $user->password)) {
-        return response()->json(['error' => 'Invalid credentials'], 401);
+        $token = $user->createToken('API Token', ['admin-tenant'])->plainTextToken;
+
+        return response()->json([
+            'access_token' => $token,
+            'role' => $user->role,
+            'user_id' => $user->id,
+            'status' => $user->status,
+        ]);
     }
 
-    // Check if the user is terminated
-    if ($user->status === 'terminated') {
-        return response()->json(['error' => 'Your account has been terminated. Please contact the administrator.'], 403);
-    }
-
-    // Generate a new token for the user
-    $token = $user->createToken('API Token', ['admin-tenant'])->plainTextToken;
-
-    return response()->json([
-        'access_token' => $token,
-        'role' => $user->role,
-        'user_id' => $user->id,
-        'status' => $user->status,
-    ]);
-}
-
-    // Register for guests
     public function registerGuest(Request $request)
     {
         $request->validate([
@@ -185,7 +145,7 @@ public function login(Request $request)
         ]);
 
         try {
-            $guestId = DB::table('guest_user')->insertGetId([
+            DB::table('guest_user')->insert([
                 'name' => $request->name,
                 'user_email' => $request->email,
                 'password' => bcrypt($request->password),
@@ -212,7 +172,6 @@ public function login(Request $request)
         }
     }
 
-    // Guest login
     public function loginGuest(Request $request)
     {
         $request->validate([
@@ -220,20 +179,20 @@ public function login(Request $request)
             'password' => 'required|string|min:4',
         ]);
 
-        $user = DB::table('guest_user')->where('user_email', $request->email)->first();
+        $guest = DB::table('guest_user')->where('user_email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$guest || !Hash::check($request->password, $guest->password)) {
             return response()->json(['error' => 'Invalid credentials'], 401);
         }
 
-        $userModel = User::firstOrCreate(
+        $user = User::firstOrCreate(
             ['email' => $request->email],
-            ['name' => $user->name, 'password' => bcrypt($request->password)]
+            ['name' => $guest->name, 'password' => bcrypt($request->password)]
         );
 
-        $token = $userModel->createToken('API Token', ['guest'])->plainTextToken;
+        $token = $user->createToken('API Token', ['guest'])->plainTextToken;
 
-        return response()->json(['access_token' => $token, 'user_email' => $user->user_email], 200);
+        return response()->json(['access_token' => $token, 'user_email' => $guest->user_email], 200);
     }
 
     public function logout(Request $request)
@@ -242,6 +201,7 @@ public function login(Request $request)
         if ($user) {
             $user->tokens()->delete();
         }
+
         return response()->json(['message' => 'Logged out successfully'], 200);
     }
 }
