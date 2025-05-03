@@ -259,36 +259,39 @@ public function unitsOnly()
 }
 public function googleVerifyEmail(Request $request)
 {
-    $token = $request->input('token'); // frontend should send { token: '...' }
+    \Log::info('✅ googleVerifyEmail endpoint hit');
+    $token = $request->input('token');
+    \Log::info('📦 Token received: ' . substr($token, 0, 30)); // log partial token
 
     if (!$token) {
+        \Log::warning('⚠️ Missing ID token');
         return response()->json(['error' => 'Missing ID token'], 400);
     }
 
     try {
-        $auth = (new Factory)
-        ->withServiceAccount(storage_path('app/firebase-service-account.json'))
-        ->createAuth();
+        $auth = app(FirebaseAuth::class);
+        \Log::info('🔐 Firebase auth loaded');
         $verifiedIdToken = $auth->verifyIdToken($token);
+        \Log::info('✅ Token verified');
+
         $uid = $verifiedIdToken->claims()->get('sub');
         $firebaseUser = $auth->getUser($uid);
+        \Log::info('👤 Firebase user: ' . $firebaseUser->email);
 
         return response()->json([
             'uid' => $firebaseUser->uid,
             'email' => $firebaseUser->email,
             'name' => $firebaseUser->displayName,
         ]);
-    } catch (InvalidToken $e) {
-        \Log::error('❌ Invalid Google token: ' . $e->getMessage());
-        return response()->json(['error' => 'Invalid Google token'], 400);
-    } catch (\Exception $e) {
-        \Log::error('❌ Google token verification failed', [
+    } catch (\Throwable $e) {
+        \Log::error('❌ googleVerifyEmail exception', [
             'message' => $e->getMessage(),
             'trace' => $e->getTraceAsString(),
         ]);
         return response()->json(['error' => 'Token verification error'], 500);
     }
 }
+
 
     public function storePaymentData(Request $request)
     {

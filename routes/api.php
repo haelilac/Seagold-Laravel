@@ -31,7 +31,7 @@ use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ResetPasswordController;
 use App\Http\Controllers\SMSController;
 use App\Http\Controllers\AmenityRequestController;
-use App\Http\Controllers\Api\GoogleVerifyEmailController;
+use App\Http\Controllers\GoogleVerifyEmailController;
 
 
 Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
