@@ -41,7 +41,7 @@ Route::get('/test', function () {
     return response()->json(['status' => 'Laravel Backend is Working!']);
 });
 
-Route::post('/google-verify-email', [AuthController::class, 'googleVerifyEmail']);
+Route::post('/google-verify-email', [AuthController::class, 'verifyGoogleEmail']);
 
 
 Route::middleware('auth:sanctum')->post('/auth/validate-token', [AuthController::class, 'validateToken']);
