@@ -255,7 +255,33 @@ public function unitsOnly()
         return response()->json(['message' => 'Something went wrong.'], 500);
     }
 }
-    
+public function googleVerifyEmail(Request $request)
+{
+    $idToken = $request->input('idToken');
+
+    if (!$idToken) {
+        return response()->json(['error' => 'Missing ID token'], 400);
+    }
+
+    try {
+        $auth = app(FirebaseAuth::class);
+        $verifiedIdToken = $auth->verifyIdToken($idToken);
+        $uid = $verifiedIdToken->claims()->get('sub');
+        $firebaseUser = $auth->getUser($uid);
+
+        return response()->json([
+            'uid' => $firebaseUser->uid,
+            'email' => $firebaseUser->email,
+            'name' => $firebaseUser->displayName,
+        ]);
+    } catch (InvalidToken $e) {
+        \Log::error('❌ Invalid Google token: ' . $e->getMessage());
+        return response()->json(['error' => 'Invalid Google token'], 400);
+    } catch (\Exception $e) {
+        \Log::error('❌ Google token verification failed: ' . $e->getMessage());
+        return response()->json(['error' => 'Token verification error'], 500);
+    }
+}
     public function storePaymentData(Request $request)
     {
         $validated = $request->validate([
