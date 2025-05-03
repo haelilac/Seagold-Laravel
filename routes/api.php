@@ -52,6 +52,7 @@ Route::get('/barangays/{cityMunCode}', [LocationController::class, 'getBarangays
 
 Route::post('/validate-receipt', [PaymentController::class, 'validateReceipt']);
 Route::post('/validate-receipt', [ApplicationController::class, 'validateReceipt']);
+Route::post('/validate-payment-receipt', [PaymentController::class, 'validatePaymentReceipt']);
 
 
 Route::post('/upload-id', function (Request $request) {
@@ -338,3 +339,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/amenities/approve/{id}', [AmenityRequestController::class, 'approve']);
     Route::put('/amenities/reject/{id}', [AmenityRequestController::class, 'reject']);
 });
+
+Route::post('/tenants/{id}/send-reminder', [TenantController::class, 'sendReminder']);
+
+Route::get('/run-reminders', function () {
+    \Artisan::call('payments:send-reminders');
+    return response()->json(['message' => 'Reminders triggered!']);
+});
+
+Route::post('/broadcasting/auth', function (Request $request) {
+    return Broadcast::auth($request);
+});
+
+Route::post('/login', [AuthController::class, 'login']);
+
+Route::post('/broadcasting/auth', function (Request $request) {
+    return Broadcast::auth($request);
+})->middleware('auth:sanctum');  // Add the 'auth:sanctum' middleware

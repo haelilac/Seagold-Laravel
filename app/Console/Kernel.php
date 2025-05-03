@@ -12,10 +12,13 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
+        $schedule->command('notify:unpaid-tenants')->dailyAt('09:00');
         $schedule->command('booking:send-reminders')->dailyAt('05:00'); // Send at 5 AM daily
         $schedule->command('check:contract-endings')->daily();
     }
-    
+    protected $commands = [
+        \App\Console\Commands\NotifyUnpaidTenants::class,
+    ];
     /**
      * Register the commands for the application.
      */

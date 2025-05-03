@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\AmenityRequest;
-
+use App\Events\NewTenantNotificationEvent;
+use App\Models\User;
 class AmenityRequestController extends Controller
 {
     /**
@@ -46,22 +47,40 @@ class AmenityRequestController extends Controller
     {
         $request = AmenityRequest::findOrFail($id);
         $request->status = 'approved';
+        $request->approved_at = now(); // optional if you store approval timestamp
         $request->save();
-
-        // Optional: Link to room_amenities table here
-
+    
+        $tenant = User::find($request->tenant_id);
+    
+        // ✅ Notify tenant
+        broadcast(new NewTenantNotificationEvent(
+            $tenant->id,
+            'Amenity Request Approved',
+            "Your request for '{$request->amenity_type}' has been approved.",
+            now()->format('M d, Y - h:i A'),
+            'amenity' // 🔑 include type for frontend routing
+        ));
+    
         return response()->json(['message' => 'Amenity request approved.']);
     }
-
-    /**
-     * Admin rejects a request
-     */
+    
     public function reject($id)
     {
         $request = AmenityRequest::findOrFail($id);
         $request->status = 'rejected';
         $request->save();
-
+    
+        $tenant = User::find($request->tenant_id);
+    
+        // ✅ Notify tenant
+        broadcast(new NewTenantNotificationEvent(
+            $tenant->id,
+            'Amenity Request Rejected',
+            "Your request for '{$request->amenity_type}' was rejected by the admin.",
+            now()->format('M d, Y - h:i A'),
+            'amenity'
+        ));
+    
         return response()->json(['message' => 'Amenity request rejected.']);
     }
 }

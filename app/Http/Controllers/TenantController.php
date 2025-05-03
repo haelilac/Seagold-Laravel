@@ -9,6 +9,7 @@ use App\Mail\PaymentReminder;
 use Illuminate\Support\Facades\Mail;
 use App\Events\PaymentReminderEvent;
 use App\Models\Notification;
+use App\Services\SMSService;
 
 class TenantController extends Controller
 {
@@ -30,14 +31,14 @@ class TenantController extends Controller
                               IFNULL(applications.city, ''), ', ',
                               IFNULL(applications.province, ''), ' ',
                               IFNULL(applications.zip_code, '')) AS address"),
-                    'applications.contact_number',
-                    'applications.check_in_date',
-                    'applications.duration',
-                    'applications.occupation',
-                    'applications.unit_id',
-                    \DB::raw("CONCAT('" . asset('storage') . "/', applications.valid_id) as valid_id_url")
-                )
-                ->get();
+                                'applications.contact_number',
+                                'applications.check_in_date',
+                                'applications.duration',
+                                'applications.occupation',
+                                'applications.unit_id',
+                                \DB::raw("applications.valid_id as valid_id_url")
+                            )
+                            ->get();
     
             return response()->json($tenants, 200);
         } catch (\Exception $e) {
@@ -442,7 +443,8 @@ public function changeUnit(Request $request, $id)
             } else {
                 $nextDueDate = $nextDueDate->toDateString();
             }
-    
+            
+            \Log::info("📨 Reminder triggered for user ID: {$id}");
             // ✅ Send email (skip if not needed)
             Mail::send('emails.payment_reminder_inline', ['tenantName' => $tenant->name, 'dueDate' => $nextDueDate], function ($message) use ($tenant) {
                 $message->to($tenant->email)
@@ -459,8 +461,18 @@ public function changeUnit(Request $request, $id)
                 'is_read' => false,
                 'type' => 'reminder',
             ]);
+
+            if (!empty($application->contact_number)) {
+                $period = Carbon::parse($nextDueDate)->format('F Y');
+                $normalized = \App\Services\SMSService::normalizeNumber($application->contact_number);
             
-    
+                if ($normalized) {
+                    SMSService::sendOverdueNotice($tenant->name, $normalized, $period);
+                } else {
+                    \Log::warning("❌ Invalid phone format for SMS: {$application->contact_number} (Tenant ID: {$tenant->id})");
+                }
+            }
+            
             return response()->json(['message' => "Reminder sent to {$tenant->name}"]);
         } catch (\Exception $e) {
             return response()->json([

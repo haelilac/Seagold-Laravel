@@ -12,7 +12,6 @@ use App\Events\NewApplicationSubmitted;
 use Carbon\Carbon;
 use App\Events\NewAdminNotificationEvent;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
-use App\Services\SMSService;
 class ApplicationController extends Controller
 {
     // Fetch all pending applications
@@ -196,7 +195,51 @@ public function unitsOnly()
             "📄 New application submitted by {$application->first_name} {$application->last_name}.",
             'tenant_update'
         ));
-    
+        try {
+            $formattedDate = Carbon::parse($application->check_in_date)->format('F j, Y \a\t g:i A');
+            $unitPrice = $unit->price;
+            $unitCode = $application->reservation_details;
+            $stayType = ucfirst($application->stay_type);
+            $duration = $application->duration;
+            $intervalLabel = match ($application->stay_type) {
+                'daily' => 'day(s)',
+                'weekly' => 'week(s)',
+                'half-month' => 'half-month',
+                default => 'month(s)',
+            };
+        
+            $expectedTotal = ($application->stay_type === 'half-month')
+                ? $unitPrice
+                : $unitPrice * $duration;
+        
+            $emailContent = "Hi {$application->first_name},\n\n"
+                . "We have received your application to stay at Seagold Dormitory.\n\n"
+                . "📄 Application Summary:\n"
+                . "- 📅 Check-in Date: {$formattedDate}\n"
+                . "- 🏠 Room: {$unitCode}\n"
+                . "- ⏳ Duration: {$duration} {$intervalLabel}\n"
+                . "- 💳 Stay Type: {$stayType}\n"
+                . "- 💰 Room Price: ₱" . number_format($unitPrice, 2) . " per {$intervalLabel}\n"
+                . "- 💵 Expected Total: ₱" . number_format($expectedTotal, 2) . "\n"
+                . "- 🧾 Reservation Fee Paid: ₱" . number_format($application->reservation_fee, 2) . "\n\n"
+                . "⚠️ *Note:* The reservation fee is only refundable if you cancel **before** your check-in date.\n"
+                . "Cancellations made **after** the scheduled check-in will *not* be refunded.\n\n"
+                . "Please wait for our email once your application has been reviewed.\n\n"
+                . "Thank you,\n"
+                . "Seagold Dormitory Management";
+        
+            Mail::raw($emailContent, function ($message) use ($application) {
+                $message->to($application->email)
+                        ->subject('Application Received - Seagold Dormitory');
+            });
+        
+            \Log::info("📩 Application confirmation email sent to {$application->email}");
+        } catch (\Exception $e) {
+            \Log::error('❌ Failed to send application confirmation email', [
+                'error' => $e->getMessage(),
+                'application_id' => $application->id
+            ]);
+        }
         return response()->json([
             'message' => 'Application submitted successfully!',
             'application' => $application,
@@ -386,15 +429,6 @@ public function accept(Request $request, $id)
                 $message->to($application->email)
                         ->subject('Your Tenant Account Details - Seagold Dormitory');
             });
-            // ✅ Send SMS after email
-            if (!empty($application->contact_number)) {
-                SMSService::send(
-                    $application->contact_number,
-                    "Hi {$application->first_name}, this is Seagold Dormitory. Congratulations! Your tenant application has been accepted. You may now log in using your account. Welcome aboard!"
-                );
-                \Log::info("✅ SMS sent to {$application->contact_number}");
-            }
-
 
             \Log::info('Email sent successfully with credentials and breakdown');
         } catch (\Exception $e) {

@@ -10,10 +10,21 @@ use Carbon\Carbon;
 use App\Models\User;
 use App\Models\Unit;
 use App\Events\NewAdminNotificationEvent;
+use App\Events\NewTenantNotificationEvent;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class PaymentController extends Controller
 {
 
+    private function calculateTotalAmount($stayType, $unitPrice, $duration, $unit)
+{
+    return match ($stayType) {
+        'daily' => $unitPrice * $duration,
+        'weekly' => $unitPrice * ceil($duration / 7),
+        'half-month' => $unitPrice / 2,
+        'monthly' => $unitPrice,
+        default => $unitPrice,
+    };
+}
     public function unpaidTenants()
     {
         $currentMonth = now()->format('F');
@@ -42,9 +53,6 @@ class PaymentController extends Controller
     }
     
     
-    // Store Payment
-    use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
-
     public function store(Request $request)
     {
         $user = $request->user();
@@ -122,9 +130,15 @@ class PaymentController extends Controller
             'status' => 'Pending',
         ]);
     
-        // Trigger the payment submitted event
-        event(new \App\Events\NewPaymentSubmitted($payment));
+        event(new \App\Events\NewTenantNotificationEvent(
+            $user->id,
+            'Payment Submitted',
+            "Your payment for {$request->payment_for} has been submitted and is awaiting confirmation.",
+            now()->format('M d, Y - h:i A'),
+            'billing' // ✅ Pass type
+        ));
         
+
         return response()->json([
             'message' => 'Payment recorded successfully!',
             'payment' => $payment,
@@ -186,7 +200,22 @@ public function confirmLatestPayment($user_id)
     }
 
     $payment->update(['status' => 'Confirmed']);
+    event(new \App\Events\NewTenantNotificationEvent(
+        $payment->user_id,
+        'Payment Confirmed',
+        "✅ Your payment for {$payment->payment_period} has been confirmed by the admin.",
+        now()->format('M d, Y - h:i A'),
+        'billing'
+    ));
 
+    Notification::create([
+        'user_id' => $payment->user_id,
+        'title' => 'Payment Confirmed',
+        'message' => "✅ Your payment for {$payment->payment_period} has been confirmed by the admin.",
+        'type' => 'billing',
+        'is_read' => false,
+    ]);
+    
     return response()->json(['message' => 'Payment confirmed successfully!', 'payment' => $payment]);
 }
 
@@ -206,7 +235,21 @@ public function rejectLatestPayment($user_id)
 
     // ✅ Trigger event
     event(new PaymentRejected($payment->user_id));
+    event(new \App\Events\NewTenantNotificationEvent(
+        $payment->user_id,
+        'Payment Rejected',
+        "❌ Your payment for {$payment->payment_period} was rejected. Please resubmit or contact admin.",
+        now()->format('M d, Y - h:i A'),
+        'billing'
+    ));
 
+    Notification::create([
+        'user_id' => $payment->user_id,
+        'title' => 'Payment Rejected',
+        'message' => " Your payment for {$payment->payment_period} has been rejected by the admin.",
+        'type' => 'billing',
+        'is_read' => false,
+    ]);
     return response()->json(['message' => 'Payment rejected successfully!', 'payment' => $payment]);
 }
 
@@ -303,6 +346,7 @@ public function updateStatus($user_id)
                     'tenant_name' => $payment->user?->name ?? 'N/A',
                     'unit_code' => $payment->unit?->unit_code ?? 'N/A',
                     'amount' => $payment->amount,
+                    'total_due' => $payment->amount + $payment->remaining_balance,
                     'payment_type' => $payment->payment_type,
                     'payment_method' => $payment->payment_method,
                     'reference_number' => $payment->reference_number,
@@ -310,9 +354,7 @@ public function updateStatus($user_id)
                     'remaining_balance' => $payment->remaining_balance,
                     'submitted_at' => $payment->created_at->toDateString(),
                     'status' => $payment->status,
-                    'receipt_path' => $payment->receipt_path
-                        ? asset('storage/' . $payment->receipt_path)
-                        : null,
+                    'receipt_path' => $payment->receipt_path ?? null,
                 ];
             });
     
@@ -350,86 +392,50 @@ public function updateStatus($user_id)
         }
     }
     
-    public function validateReceipt(Request $request)
+    public function validatePaymentReceipt(Request $request)
     {
-        \Log::info("📥 Received validateReceipt request", [
+        \Log::info('📥 Received validatePaymentReceipt request', [
             'headers' => $request->headers->all(),
             'method' => $request->method(),
-            'files' => $request->allFiles(),
+            'body' => $request->except(['receipt']),
         ]);
-    
-        if (!$request->hasFile('receipt')) {
-            return response()->json(['message' => 'No receipt uploaded.'], 400);
-        }
     
         $request->validate([
-            'receipt' => 'required|file|mimes:png,jpg,jpeg,pdf|max:2048',
-            'user_reference' => 'required|string|min:13|max:13',
-            'user_amount' => 'required|numeric|min:1',
+            'receipt_url' => 'required|string',
+            'user_reference'  => 'required|string',
+            'user_amount'     => 'required|numeric',
         ]);
     
-        $receipt = $request->file('receipt');
-        $receiptPath = $receipt->getPathname();
+        $receiptUrl = $request->input('receipt_url');
     
         try {
-            // 🔍 Prepare the file to be sent to FastAPI
-            $client = new \GuzzleHttp\Client();
-            $response = $client->post('https://seagold-python-production.up.railway.app/upload-id/', [
-                'multipart' => [
-                    [
-                        'name' => 'file',
-                        'contents' => fopen($receiptPath, 'r'),
-                        'filename' => $receipt->getClientOriginalName(),
-                    ],
-                    [
-                        'name' => 'id_type',
-                        'contents' => 'gcash',
-                    ],
-                ]
+            $tempFile = tempnam(sys_get_temp_dir(), 'receipt_');
+            file_put_contents($tempFile, file_get_contents($receiptUrl));
+    
+            $ocrApiUrl = 'https://seagold-python-production.up.railway.app/validate-payment-receipt/';
+
+            $ocrResponse = Http::attach(
+                'receipt', file_get_contents($tempFile), 'receipt.jpg'
+            )->asForm()->post($ocrApiUrl, [
+                'user_reference' => $request->input('user_reference'),
+                'user_amount'    => $request->input('user_amount'),
             ]);
-            
     
-            $responseContent = $response->getBody()->getContents();
-            \Log::info("📜 FastAPI Response: " . $responseContent);
+            unlink($tempFile); // 🔥 Clean up the temp file
     
-            $ocrData = json_decode($responseContent, true);
-    
-            if (!$ocrData || !isset($ocrData['extracted_reference']) || !isset($ocrData['extracted_amount'])) {
-                return response()->json(['message' => 'Could not extract reference number or amount.'], 400);
+            if ($ocrResponse->failed()) {
+                \Log::error('❌ OCR FastAPI failed', ['status' => $ocrResponse->status()]);
+                return response()->json(['message' => 'OCR service failed.'], 500);
             }
     
-            $extractedReference = trim(strval($ocrData['extracted_reference']));
-            $extractedAmount = floatval($ocrData['extracted_amount']);
-            
-            $userReference = trim(strval($request->user_reference));
-            $userAmount = floatval($request->user_amount);
+            return response()->json($ocrResponse->json());
     
-            if ($extractedReference !== $userReference) {
-                return response()->json([
-                    'match' => false,
-                    'message' => '❌ Reference number does not match!',
-                    'ocr_data' => $ocrData
-                ], 400);
-            }
-    
-            if ($extractedAmount !== $userAmount) {
-                return response()->json([
-                    'match' => false,
-                    'message' => '❌ Amount does not match! Please enter the exact amount from the receipt.',
-                    'ocr_data' => $ocrData
-                ], 400);
-            }
-    
-            return response()->json([
-                'match' => true,
-                'message' => '✅ Receipt validated successfully!',
-                'ocr_data' => $ocrData
-            ]);
         } catch (\Exception $e) {
-            \Log::error('Error during receipt validation: ' . $e->getMessage());
-            return response()->json(['message' => 'Server error: Unable to process the receipt.'], 500);
+            \Log::error('❌ validatePaymentReceipt error', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Internal server error'], 500);
         }
     }
+    
     
         
     public function getTenantPayments($tenantId)

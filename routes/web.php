@@ -22,6 +22,4 @@ Route::get('/sanctum/csrf-cookie', function () {
     return response()->json(['message' => 'CSRF cookie set']);
 });
 
-
-Route::get('/hash-checker', [HashCheckerController::class, 'showForm'])->name('hash.form');
-Route::post('/hash-checker', [HashCheckerController::class, 'checkHash'])->name('hash.check');
+Route::get('login-admin-tenant', [AuthController::class, 'showLoginForm'])->name('login-admin-tenant');

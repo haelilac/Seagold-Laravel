@@ -138,33 +138,37 @@ class AuthController extends Controller
 
 
 
-    // Login for admin/tenant
-    public function login(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string|min:4',
-        ]);
+// Login for admin/tenant
+public function login(Request $request)
+{
+    $request->validate([
+        'email' => 'required|email',
+        'password' => 'required|string|min:4',
+    ]);
 
-        $user = User::where('email', $request->email)->first();
+    // Find the user by email
+    $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['error' => 'Invalid credentials'], 401);
-        }
-
-        if ($user->status === 'terminated') {
-            return response()->json(['error' => 'Your account has been terminated. Please contact the administrator.'], 403);
-        }
-
-        $token = $user->createToken('API Token', ['admin-tenant'])->plainTextToken;
-
-        return response()->json([
-            'access_token' => $token,
-            'role' => $user->role,
-            'user_id' => $user->id,
-            'status' => $user->status,
-        ]);
+    // Check if user exists and passwords match
+    if (!$user || !Hash::check($request->password, $user->password)) {
+        return response()->json(['error' => 'Invalid credentials'], 401);
     }
+
+    // Check if the user is terminated
+    if ($user->status === 'terminated') {
+        return response()->json(['error' => 'Your account has been terminated. Please contact the administrator.'], 403);
+    }
+
+    // Generate a new token for the user
+    $token = $user->createToken('API Token', ['admin-tenant'])->plainTextToken;
+
+    return response()->json([
+        'access_token' => $token,
+        'role' => $user->role,
+        'user_id' => $user->id,
+        'status' => $user->status,
+    ]);
+}
 
     // Register for guests
     public function registerGuest(Request $request)
