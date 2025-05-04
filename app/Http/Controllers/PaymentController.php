@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Unit;
 use App\Events\NewAdminNotificationEvent;
 use App\Events\NewTenantNotificationEvent;
+use App\Models\Notification;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class PaymentController extends Controller
 {
@@ -27,11 +28,12 @@ class PaymentController extends Controller
 }
     public function unpaidTenants()
     {
-        $currentMonth = now()->format('F');
+        $currentMonth = now()->format('Y-m');
     
         $unpaidTenants = User::where('role', 'tenant')
             ->whereDoesntHave('payments', function ($query) use ($currentMonth) {
-                $query->where('payment_period', $currentMonth)->where('status', 'Confirmed');
+                $query->where('payment_period', 'like', "$currentMonth%")->where('status', 'Confirmed');
+
             })
             ->with('unit')
             ->get()
@@ -97,7 +99,8 @@ class PaymentController extends Controller
             // Save the secure URL for the receipt
             $receiptPath = $upload->getSecurePath(); // Cloudinary secure URL
         }
-    
+
+        $sanitizedAmount = floatval(str_replace(',', '', $request->amount));
         // Calculate the total amount based on the stay type
         $stayType = $request->stay_type;
         $duration = $request->duration; // Duration in days
@@ -116,17 +119,20 @@ class PaymentController extends Controller
             ], 400);
         }
     
+        $paymentType = ($stayType === 'monthly' && $sanitizedAmount < $totalAmount)
+            ? 'Partially Paid'
+            : 'Fully Paid';
         // Store payment
         $payment = Payment::create([
             'user_id' => $user->id,
             'unit_id' => $unitId,
-            'amount' => $request->amount,
-            'remaining_balance' => $totalAmount - $request->amount,
-            'payment_type' => $request->amount < $totalAmount ? 'Partially Paid' : 'Fully Paid',
+            'amount' => $sanitizedAmount,
+            'remaining_balance' => $totalAmount - $sanitizedAmount,
+            'payment_type' => $paymentType,
             'payment_method' => $request->payment_method,
             'reference_number' => $request->reference_number,
             'payment_period' => $request->payment_for,
-            'receipt_path' => $receiptPath,  // Cloudinary URL for the receipt
+            'receipt_path' => $receiptPath ?? $request->input('receipt_url'),  // Cloudinary URL for the receipt
             'status' => 'Pending',
         ]);
     
