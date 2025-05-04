@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use App\Models\UnitImage;
+use App\Models\Application;
 
 class UnitController extends Controller
 {
@@ -302,23 +303,34 @@ class UnitController extends Controller
         if (!$user) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
-
+    
         $unit = Unit::find($user->unit_id);
-
+    
         if (!$unit) {
             return response()->json(['error' => 'No assigned unit found'], 404);
         }
-
+    
         $unitGroup = Unit::where('unit_code', $unit->unit_code)->get();
         $images = DB::table('unit_images')->where('unit_code', $unit->unit_code)->get();
-
+    
+        // ✅ Get the approved application for set_price
+        $application = Application::where('email', $user->email)
+            ->where('status', 'approved')
+            ->latest()
+            ->first();
+    
+        $setPrice = $application ? $application->set_price : null;
+    
         return response()->json([
-            'unit_code' => $unit->unit_code,
-            'stay_types' => $unitGroup->pluck('stay_type')->unique()->values(),
+            'unit_code'    => $unit->unit_code,
+            'stay_types'   => $unitGroup->pluck('stay_type')->unique()->values(),
+            'capacity'     => $unitGroup->max('capacity'),
             'max_capacity' => $unitGroup->max('max_capacity'),
-            'base_price' => $unitGroup->where('stay_type', 'monthly')->min('price'),
-            'images' => $images,
-            'amenities' => ['Air Conditioning', 'Private Bathroom', 'Wi-Fi', 'Study Table', 'Wardrobe']
+            'status'       => $unit->status,                     // ✅ already present
+            'base_price'   => $unitGroup->where('stay_type', 'monthly')->min('price'),
+            'set_price'    => $setPrice,                         // ✅ add to response
+            'images'       => $images,
+            'amenities'    => ['Air Conditioning', 'Private Bathroom', 'Wi-Fi', 'Study Table', 'Wardrobe']
         ]);
     }
 }
