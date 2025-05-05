@@ -127,15 +127,15 @@ class PaymentController extends Controller
             $period = is_callable($interval)
                 ? $interval($checkIn, $i)
                 : $checkIn->copy()->{$interval}($i);
-            $expectedPeriods[] = $period->format('Y-m-d');
+            $expectedPeriods[] = $period->format('Y-m');
         }
     
         $paidPeriods = Payment::where('user_id', $user->id)
             ->pluck('payment_period')
-            ->map(fn($p) => Carbon::parse($p)->format('Y-m-d'))
+            ->map(fn($p) => Carbon::parse($p)->format('Y-m'))
             ->toArray();
     
-        $requestedPeriod = Carbon::parse($request->payment_for)->format('Y-m-d');
+        $requestedPeriod = Carbon::parse($request->payment_for)->format('Y-m');
     
         foreach ($expectedPeriods as $expected) {
             if (!in_array($expected, $paidPeriods)) {
@@ -202,7 +202,7 @@ class PaymentController extends Controller
                 ? $interval($checkIn, $i)
                 : $checkIn->copy()->{$interval}($i);
     
-            $expectedPeriods[] = $date->format('Y-m-d');
+            $expectedPeriods[] = $date->format('Y-m');
         }
     
         $paidPeriods = collect($payments)->where('status', 'Confirmed')->pluck('payment_period')->toArray();
@@ -521,7 +521,7 @@ public function updateStatus($user_id)
                 } else {
                     $paymentDate = $startDate->copy()->{$interval}($i);
                 }
-                $months[] = Carbon::parse($paymentDate)->startOfMonth()->format('Y-m-d');
+                $months[] = Carbon::parse($paymentDate)->startOfMonth()->format('Y-m');
             }
     
             // Calculate the unpaid balances for each month
@@ -529,7 +529,7 @@ public function updateStatus($user_id)
 
             foreach ($payments as $payment) {
                 if ($payment->status !== 'Confirmed') continue; // ✅ Only count confirmed payments
-                $month = Carbon::parse($payment->payment_period)->startOfMonth()->format('Y-m-d');
+                $month = Carbon::parse($payment->payment_period)->format('Y-m');
                 if (!isset($totalPaidPerMonth[$month])) {
                     $totalPaidPerMonth[$month] = 0;
                 }
