@@ -129,7 +129,7 @@ class PaymentController extends Controller
             'amount' => $sanitizedAmount,
             'payment_type' => $paymentType,
             'payment_method' => $request->payment_method,
-            'reference_number' => $request->reference_number,
+            'reference_number' => $request->reference_number ?? 'CASH-' . now()->timestamp,
             'payment_period' => $request->payment_for,
             'receipt_path' => $receiptPath ?? $request->input('receipt_url'),  // Cloudinary URL for the receipt
             'status' => 'Pending',
