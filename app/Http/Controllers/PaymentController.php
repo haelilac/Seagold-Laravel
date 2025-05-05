@@ -56,25 +56,27 @@ class PaymentController extends Controller
     public function store(Request $request)
     {
         $user = $request->user();
-    
+        
         if (!$user) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
     
+        // Validate the incoming request
         $request->validate([
             'amount' => 'required|numeric|min:1',
             'payment_method' => 'required|string|max:50',
             'payment_type' => 'required|string|max:50',
             'reference_number' => 'nullable|string|max:50',
-            'payment_for' => 'required|date_format:Y-m',
+            'payment_for' => 'required|date',
             'receipt' => 'nullable|file|mimes:png,jpg,jpeg,pdf|max:2048',
         ]);
     
-        $unitId = $user->unit_id ?? null;
+        $unitId = $user->unit_id ?? null; 
         if (!$unitId) {
             return response()->json(['error' => 'Server error', 'details' => 'Tenant has no assigned unit.'], 400);
         }
     
+        // Fetch the unit model
         $unit = \App\Models\Unit::find($unitId);
         if (!$unit) {
             return response()->json(['error' => 'Unit not found.'], 404);
@@ -82,24 +84,31 @@ class PaymentController extends Controller
     
         $unitPrice = $user->rent_price ?? $unit->price ?? 0;
     
-        // Upload receipt to Cloudinary
+        // Handle the receipt file upload to Cloudinary if exists
         $receiptPath = null;
         if ($request->hasFile('receipt')) {
-            $upload = Cloudinary::upload($request->file('receipt')->getRealPath(), [
-                'folder' => 'payments/receipts',
-                'resource_type' => 'auto'
+            $receipt = $request->file('receipt');
+            // Upload the receipt to Cloudinary
+            $upload = Cloudinary::upload($receipt->getRealPath(), [
+                'folder' => 'payments/receipts',  // Folder where the receipts will be stored
+                'resource_type' => 'auto' // Automatically detects file type (image, pdf, etc.)
             ]);
-            $receiptPath = $upload->getSecurePath();
+    
+            // Save the secure URL for the receipt
+            $receiptPath = $upload->getSecurePath(); // Cloudinary secure URL
         }
     
+        // Calculate the total amount based on the stay type
         $stayType = $request->stay_type;
-        $duration = $request->duration;
+        $duration = $request->duration; // Duration in days
         $totalAmount = $this->calculateTotalAmount($stayType, $unitPrice, $duration, $unit);
     
+        // Prevent partial payments for non-monthly tenants
         if ($stayType !== 'monthly' && $request->amount < $totalAmount) {
             return response()->json(['error' => 'Partial payments are not allowed for this stay type.'], 400);
         }
     
+        // Handle duplicate payment reference number
         if (Payment::where('reference_number', $request->reference_number)->exists()) {
             return response()->json([
                 'error' => 'Duplicate Reference Number',
@@ -107,50 +116,7 @@ class PaymentController extends Controller
             ], 400);
         }
     
-        // ✅ Enforce correct period sequence (can’t skip future months)
-        $application = \App\Models\Application::where('email', $user->email)->first();
-        if (!$application) {
-            return response()->json(['error' => 'Application not found for tenant.'], 404);
-        }
-    
-        $checkIn = Carbon::parse($application->check_in_date);
-        $interval = match($stayType) {
-            'daily' => 'addDay',
-            'weekly' => 'addWeek',
-            'half-month' => fn($d, $i) => $d->copy()->addDays($i * 15),
-            'monthly' => 'addMonth',
-            default => 'addMonth',
-        };
-    
-        $expectedPeriods = [];
-        for ($i = 0; $i < $application->duration; $i++) {
-            $period = is_callable($interval)
-                ? $interval($checkIn, $i)
-                : $checkIn->copy()->{$interval}($i);
-            $expectedPeriods[] = $period->format('Y-m');
-        }
-    
-        $paidPeriods = Payment::where('user_id', $user->id)
-            ->pluck('payment_period')
-            ->map(fn($p) => Carbon::parse($p)->format('Y-m'))
-            ->toArray();
-    
-        $requestedPeriod = Carbon::parse($request->payment_for)->format('Y-m');
-    
-        foreach ($expectedPeriods as $expected) {
-            if (!in_array($expected, $paidPeriods)) {
-                if ($requestedPeriod !== $expected) {
-                    return response()->json([
-                        'error' => 'You must pay for the next unpaid period first.',
-                        'expected_period' => $expected,
-                        'requested_period' => $requestedPeriod
-                    ], 400);
-                }
-                break;
-            }
-        }
-    
-        // ✅ Store Payment
+        // Store payment
         $payment = Payment::create([
             'user_id' => $user->id,
             'unit_id' => $unitId,
@@ -158,9 +124,9 @@ class PaymentController extends Controller
             'remaining_balance' => $totalAmount - $request->amount,
             'payment_type' => $request->amount < $totalAmount ? 'Partially Paid' : 'Fully Paid',
             'payment_method' => $request->payment_method,
-            'reference_number' => $request->reference_number ?? 'CASH-' . now()->timestamp,
+            'reference_number' => $request->reference_number,
             'payment_period' => $request->payment_for,
-            'receipt_path' => $receiptPath,
+            'receipt_path' => $receiptPath,  // Cloudinary URL for the receipt
             'status' => 'Pending',
         ]);
     
@@ -169,9 +135,10 @@ class PaymentController extends Controller
             'Payment Submitted',
             "Your payment for {$request->payment_for} has been submitted and is awaiting confirmation.",
             now()->format('M d, Y - h:i A'),
-            'billing'
+            'billing' // ✅ Pass type
         ));
-    
+        
+
         return response()->json([
             'message' => 'Payment recorded successfully!',
             'payment' => $payment,
@@ -187,33 +154,31 @@ class PaymentController extends Controller
     
         $checkIn = Carbon::parse($checkInDate);
     
-        $interval = match($stayType) {
-            'daily' => 'addDay',
-            'weekly' => 'addWeek',
-            'half-month' => fn($date, $i) => $date->copy()->addDays($i * 15),
-            'monthly' => 'addMonth',
-            default => 'addMonth',
+        $intervalDays = match($stayType) {
+            'daily' => 1,
+            'weekly' => 7,
+            'half-month' => 15,
+            'monthly' => 30,
+            default => 30,
         };
     
-        $expectedPeriods = [];
-    
+        // Generate all periods
+        $periods = [];
         for ($i = 0; $i < $duration; $i++) {
-            $date = is_callable($interval)
-                ? $interval($checkIn, $i)
-                : $checkIn->copy()->{$interval}($i);
-    
-            $expectedPeriods[] = $date->format('Y-m');
+            $periods[] = $checkIn->copy()->addDays($i * $intervalDays)->format('Y-m-d');
         }
     
-        $paidPeriods = collect($payments)->where('status', 'Confirmed')->pluck('payment_period')->toArray();
+        // Get confirmed payments
+        $paidPeriods = collect($payments)->pluck('payment_period')->toArray();
     
-        foreach ($expectedPeriods as $period) {
+        // Return the first unpaid period
+        foreach ($periods as $period) {
             if (!in_array($period, $paidPeriods)) {
-                return Carbon::parse($period)->toFormattedDateString(); // e.g., "June 30, 2025"
+                return $period;
             }
         }
     
-        return 'Completed';
+        return 'Completed'; // All paid
     }
     
 public function updateSpecificPayment($id)
@@ -521,15 +486,14 @@ public function updateStatus($user_id)
                 } else {
                     $paymentDate = $startDate->copy()->{$interval}($i);
                 }
-                $months[] = Carbon::parse($paymentDate)->startOfMonth()->format('Y-m');
+                $months[] = $paymentDate->format('Y-m-d');
             }
     
             // Calculate the unpaid balances for each month
             $totalPaidPerMonth = [];
-
+    
             foreach ($payments as $payment) {
-                if ($payment->status !== 'Confirmed') continue; // ✅ Only count confirmed payments
-                $month = Carbon::parse($payment->payment_period)->format('Y-m');
+                $month = $payment->payment_period;
                 if (!isset($totalPaidPerMonth[$month])) {
                     $totalPaidPerMonth[$month] = 0;
                 }
