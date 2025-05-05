@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-use Illuminate\Support\Facades\Http;
+
 use Illuminate\Support\Facades\Event;
 use App\Events\PaymentRejected;
 use App\Models\Payment;
@@ -11,7 +11,6 @@ use App\Models\User;
 use App\Models\Unit;
 use App\Events\NewAdminNotificationEvent;
 use App\Events\NewTenantNotificationEvent;
-use App\Models\Notification;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 class PaymentController extends Controller
 {
@@ -28,12 +27,11 @@ class PaymentController extends Controller
 }
     public function unpaidTenants()
     {
-        $currentMonth = now()->format('Y-m');
+        $currentMonth = now()->format('F');
     
         $unpaidTenants = User::where('role', 'tenant')
             ->whereDoesntHave('payments', function ($query) use ($currentMonth) {
-                $query->where('payment_period', 'like', "$currentMonth%")->where('status', 'confirmed');
-
+                $query->where('payment_period', $currentMonth)->where('status', 'Confirmed');
             })
             ->with('unit')
             ->get()
@@ -99,8 +97,7 @@ class PaymentController extends Controller
             // Save the secure URL for the receipt
             $receiptPath = $upload->getSecurePath(); // Cloudinary secure URL
         }
-
-        $sanitizedAmount = floatval(str_replace(',', '', $request->amount));
+    
         // Calculate the total amount based on the stay type
         $stayType = $request->stay_type;
         $duration = $request->duration; // Duration in days
@@ -119,19 +116,17 @@ class PaymentController extends Controller
             ], 400);
         }
     
-        $paymentType = ($stayType === 'monthly' && $sanitizedAmount < $totalAmount)
-            ? 'Partially Paid'
-            : 'Fully Paid';
         // Store payment
         $payment = Payment::create([
             'user_id' => $user->id,
             'unit_id' => $unitId,
-            'amount' => $sanitizedAmount,
-            'payment_type' => $paymentType,
+            'amount' => $request->amount,
+            'remaining_balance' => $totalAmount - $request->amount,
+            'payment_type' => $request->amount < $totalAmount ? 'Partially Paid' : 'Fully Paid',
             'payment_method' => $request->payment_method,
-            'reference_number' => $request->reference_number ?? 'CASH-' . now()->timestamp,
-            'payment_period' => Carbon::parse($request->payment_for)->toDateString(),
-            'receipt_path' => $receiptPath ?? $request->input('receipt_url'),  // Cloudinary URL for the receipt
+            'reference_number' => $request->reference_number,
+            'payment_period' => $request->payment_for,
+            'receipt_path' => $receiptPath,  // Cloudinary URL for the receipt
             'status' => 'Pending',
         ]);
     
@@ -158,9 +153,6 @@ class PaymentController extends Controller
         }
     
         $checkIn = Carbon::parse($checkInDate);
-        $startDate = $checkIn->day >= 25
-            ? $checkIn->copy()->addMonth()->startOfMonth()
-            : $checkIn->copy()->startOfMonth();
     
         $intervalDays = match($stayType) {
             'daily' => 1,
@@ -170,27 +162,18 @@ class PaymentController extends Controller
             default => 30,
         };
     
-        // Build all expected periods
-        $expectedPeriods = [];
+        // Generate all periods
+        $periods = [];
         for ($i = 0; $i < $duration; $i++) {
-            $periodDate = $startDate->copy()->addDays($i * $intervalDays)->startOfMonth()->toDateString();
-            $expectedPeriods[] = $periodDate;
+            $periods[] = $checkIn->copy()->addDays($i * $intervalDays)->format('Y-m-d');
         }
     
-        // Group confirmed payments by payment_period
-        $groupedConfirmed = collect($payments)
-            ->where('status', 'confirmed')
-            ->groupBy(function ($p) {
-                return Carbon::parse($p['payment_period'])->startOfMonth()->toDateString();
-            });
+        // Get confirmed payments
+        $paidPeriods = collect($payments)->pluck('payment_period')->toArray();
     
-        // Get the unit price (assume all payments are for the same unit)
-        $unitPrice = $payments->first()['unit_price'] ?? 0;
-    
-        // Find the first period that is not fully paid
-        foreach ($expectedPeriods as $period) {
-            $totalPaid = $groupedConfirmed[$period]?->sum('amount') ?? 0;
-            if ($totalPaid < $unitPrice) {
+        // Return the first unpaid period
+        foreach ($periods as $period) {
+            if (!in_array($period, $paidPeriods)) {
                 return $period;
             }
         }
@@ -198,11 +181,10 @@ class PaymentController extends Controller
         return 'Completed'; // All paid
     }
     
-    
 public function updateSpecificPayment($id)
 {
     $payment = Payment::where('id', $id)->where('status', 'Pending')->firstOrFail();
-    $payment->update(['status' => 'confirmed']);
+    $payment->update(['status' => 'Confirmed']);
 
     return response()->json(['message' => 'Payment confirmed successfully!', 'payment' => $payment]);
 }
@@ -217,7 +199,7 @@ public function confirmLatestPayment($user_id)
         return response()->json(['message' => 'No pending payment found for this user.'], 404);
     }
 
-    $payment->update(['status' => 'confirmed']);
+    $payment->update(['status' => 'Confirmed']);
     event(new \App\Events\NewTenantNotificationEvent(
         $payment->user_id,
         'Payment Confirmed',
@@ -286,7 +268,7 @@ public function updateStatus($user_id)
         return response()->json(['message' => 'No pending payment found for the current month.'], 404);
     }
 
-    $payment->update(['status' => 'confirmed']);
+    $payment->update(['status' => 'Confirmed']);
 
     return response()->json([
         'message' => 'Payment confirmed successfully!',
@@ -357,37 +339,23 @@ public function updateStatus($user_id)
     
             $payments = $query->get();
     
-            $paymentsByPeriod = [];
-
-            foreach ($payments as $p) {
-                $key = $p->user_id . '|' . $p->payment_period;
-                $paymentsByPeriod[$key][] = $p;
-            }
-            
-            $formattedPayments = collect($paymentsByPeriod)->flatMap(function ($group, $key) {
-                [$userId, $period] = explode('|', $key);
-                $unitPrice = $group[0]->user->rent_price ?? $group[0]->unit->price ?? 0;
-            
-                $totalPaid = collect($group)->where('status', 'confirmed')->sum('amount');
-            
-                return collect($group)->map(function ($payment) use ($totalPaid, $unitPrice) {
-                    return [
-                        'id' => $payment->id,
-                        'user_id' => $payment->user_id,
-                        'tenant_name' => $payment->user?->name ?? 'N/A',
-                        'unit_code' => $payment->unit?->unit_code ?? 'N/A',
-                        'amount' => $payment->amount,
-                        'total_due' => $unitPrice,
-                        'payment_type' => $payment->payment_type,
-                        'payment_method' => $payment->payment_method,
-                        'reference_number' => $payment->reference_number,
-                        'payment_period' => Carbon::parse($payment->payment_period)->toDateString(),
-                        'remaining_balance' => max($unitPrice - $totalPaid, 0),
-                        'submitted_at' => $payment->created_at->toDateString(),
-                        'status' => $payment->status,
-                        'receipt_path' => $payment->receipt_path ?? null,
-                    ];
-                });
+            $formattedPayments = $payments->map(function ($payment) {
+                return [
+                    'id' => $payment->id,
+                    'user_id' => $payment->user_id,
+                    'tenant_name' => $payment->user?->name ?? 'N/A',
+                    'unit_code' => $payment->unit?->unit_code ?? 'N/A',
+                    'amount' => $payment->amount,
+                    'total_due' => $payment->amount + $payment->remaining_balance,
+                    'payment_type' => $payment->payment_type,
+                    'payment_method' => $payment->payment_method,
+                    'reference_number' => $payment->reference_number,
+                    'payment_period' => Carbon::parse($payment->payment_period)->toDateString(),
+                    'remaining_balance' => $payment->remaining_balance,
+                    'submitted_at' => $payment->created_at->toDateString(),
+                    'status' => $payment->status,
+                    'receipt_path' => $payment->receipt_path ?? null,
+                ];
             });
     
             return response()->json($formattedPayments);
@@ -401,7 +369,7 @@ public function updateStatus($user_id)
     public function paymentSummary()
     {
         try {
-            $totalConfirmed = Payment::where('status', 'confirmed')->sum('amount');
+            $totalConfirmed = Payment::where('status', 'Confirmed')->sum('amount');
             $pendingPayments = Payment::where('status', 'Pending')->count();
     
             // Dynamically calculate the outstanding balance for tenants
@@ -410,7 +378,7 @@ public function updateStatus($user_id)
                 ->get()
                 ->sum(function ($tenant) {
                     $totalDue = optional($tenant->unit)->price * optional($tenant->application)->duration ?? 1;
-                    $totalPaid = $tenant->payments->where('status', 'confirmed')->sum('amount');
+                    $totalPaid = $tenant->payments->where('status', 'Confirmed')->sum('amount');
                     return max($totalDue - $totalPaid, 0); // Ensure non-negative balance
                 });
     
@@ -474,84 +442,69 @@ public function updateStatus($user_id)
     {
         try {
             $tenant = User::findOrFail($tenantId);
-            $application = \App\Models\Application::where('email', $tenant->email)->first();
+            $application = \App\Models\Application::where('email', $tenant->email)->firstOrFail();
     
-            if (!$application) {
-                return response()->json(['error' => 'No application record found for this tenant.'], 404);
-            }
-    
+            // Fetch the unit assigned to the tenant
             $unit = Unit::find($application->unit_id);
+    
             if (!$unit) {
                 return response()->json(['error' => 'No unit assigned to this tenant.'], 404);
             }
     
+            // Use set_price from applications table if available, otherwise use original unit price
             $unitPrice = $tenant->rent_price ?? ($application->set_price ?? $unit->price);
-            $rawPayments = \App\Models\Payment::where('user_id', $tenantId)->get();
     
-            // Group confirmed payments by normalized period
-            $paymentsGrouped = [];
-            foreach ($rawPayments as $p) {
-                if ($p->status !== 'confirmed') continue;
-                $month = Carbon::parse($p->payment_period)->startOfMonth()->format('Y-m-d'); 
-                $paymentsGrouped[$month] = ($paymentsGrouped[$month] ?? 0) + $p->amount;
-            }
+            // Retrieve all payments made by the user
+            $payments = \App\Models\Payment::where('user_id', $tenantId)
+            ->get();
     
-            // Map with correct normalized remaining balance
-            $payments = $rawPayments->map(function ($payment) use ($unitPrice, $paymentsGrouped) {
-                $period = Carbon::parse($payment->payment_period)->startOfMonth()->format('Y-m-d');
-                $totalPaidForPeriod = $paymentsGrouped[$period] ?? 0;
-                $remaining = max(0, $unitPrice - $totalPaidForPeriod);
-            
-                return [
-                    'id' => $payment->id,
-                    'payment_period' => $payment->payment_period,
-                    'amount' => $payment->amount,
-                    'payment_type' => $payment->payment_type,
-                    'payment_method' => $payment->payment_method,
-                    'reference_number' => $payment->reference_number,
-                    'status' => $payment->status,
-                    'receipt_path' => $payment->receipt_path,
-                    'created_at' => $payment->created_at,
-                    'remaining_balance' => $remaining,
-                ];
-            });
-            
-    
+            $unpaidBalances = [];
             $dueDate = $this->calculateNextDueDate(
                 $application->check_in_date,
                 $application->duration,
                 $application->stay_type,
                 $payments
             );
-    
-            // Build billing months
-            $checkIn = Carbon::parse($application->check_in_date);
-$startDate = $checkIn->day >= 25
-    ? $checkIn->copy()->addMonth()->startOfMonth()
-    : $checkIn->copy()->startOfMonth();
+            
+            // Generate months based on duration and check-in date
+            $startDate = Carbon::parse($application->check_in_date);
             $months = [];
     
+            $months = [];
+
             $interval = match($application->stay_type) {
                 'daily' => 'addDays',
                 'weekly' => 'addWeeks',
-                'half-month' => function($date, $i) { return $date->copy()->addDays($i * 15); },
+                'half-month' => function($date, $i) { return $date->copy()->addDays($i * 15); }, // Special case
                 'monthly' => 'addMonths',
                 default => 'addMonths',
             };
-    
+            
             for ($i = 0; $i < $application->duration; $i++) {
                 if (is_callable($interval)) {
                     $paymentDate = $interval($startDate, $i);
                 } else {
                     $paymentDate = $startDate->copy()->{$interval}($i);
                 }
-                $months[] = $paymentDate->copy()->startOfMonth()->format('Y-m-d'); 
+                $months[] = $paymentDate->format('Y-m-d');
             }
     
-            $unpaidBalances = [];
+            // Calculate the unpaid balances for each month
+            $totalPaidPerMonth = [];
+    
+            foreach ($payments as $payment) {
+                $month = $payment->payment_period;
+                if (!isset($totalPaidPerMonth[$month])) {
+                    $totalPaidPerMonth[$month] = 0;
+                }
+                $totalPaidPerMonth[$month] += $payment->amount;
+            }
+    
+            // Calculate remaining balance for each month
             foreach ($months as $month) {
-                $paid = $paymentsGrouped[$month] ?? 0;
-                $unpaidBalances[$month] = max(0, $unitPrice - $paid);
+                $amountPaid = $totalPaidPerMonth[$month] ?? 0; // Defaults to 0 if no payment found
+                $remainingBalance = max(0, $unitPrice - $amountPaid);
+                $unpaidBalances[$month] = $remainingBalance;
             }
     
             return response()->json([
@@ -563,7 +516,6 @@ $startDate = $checkIn->day >= 25
                 'stay_type' => $application->stay_type,
                 'unpaid_balances' => $unpaidBalances,
             ], 200);
-    
         } catch (\Exception $e) {
             \Log::error('Failed to fetch tenant payments: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to fetch tenant payments.'], 500);
@@ -571,5 +523,4 @@ $startDate = $checkIn->day >= 25
     }
     
     
-
 }
