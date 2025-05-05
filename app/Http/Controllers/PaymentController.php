@@ -130,7 +130,7 @@ class PaymentController extends Controller
             'payment_type' => $paymentType,
             'payment_method' => $request->payment_method,
             'reference_number' => $request->reference_number ?? 'CASH-' . now()->timestamp,
-            'payment_period' => $request->payment_for,
+            'payment_period' => Carbon::parse($request->payment_for)->startOfMonth()->toDateString(),
             'receipt_path' => $receiptPath ?? $request->input('receipt_url'),  // Cloudinary URL for the receipt
             'status' => 'Pending',
         ]);
@@ -483,7 +483,7 @@ public function updateStatus($user_id)
             $paymentsGrouped = [];
             foreach ($rawPayments as $p) {
                 if ($p->status !== 'confirmed') continue;
-                $month = $p->payment_period;
+                $month = Carbon::parse($p->payment_period)->startOfMonth()->format('Y-m-d'); 
                 $paymentsGrouped[$month] = ($paymentsGrouped[$month] ?? 0) + $p->amount;
             }
     
@@ -535,7 +535,7 @@ public function updateStatus($user_id)
                 } else {
                     $paymentDate = $startDate->copy()->{$interval}($i);
                 }
-                $months[] = $paymentDate->format('Y-m-d');
+                $months[] = $paymentDate->copy()->startOfMonth()->format('Y-m-d'); 
             }
     
             // Compute unpaid balances for each month
