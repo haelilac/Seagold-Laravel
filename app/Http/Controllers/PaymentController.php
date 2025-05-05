@@ -521,7 +521,7 @@ public function updateStatus($user_id)
                 } else {
                     $paymentDate = $startDate->copy()->{$interval}($i);
                 }
-                $months[] = $paymentDate->format('Y-m-d');
+                $months[] = Carbon::parse($paymentDate)->startOfMonth()->format('Y-m-d');
             }
     
             // Calculate the unpaid balances for each month
