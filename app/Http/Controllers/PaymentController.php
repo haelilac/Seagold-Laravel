@@ -158,9 +158,9 @@ class PaymentController extends Controller
         }
     
         $checkIn = Carbon::parse($checkInDate);
-$startDate = $checkIn->day >= 25
-    ? $checkIn->copy()->addMonth()->startOfMonth()
-    : $checkIn->copy()->startOfMonth();
+        $startDate = $checkIn->day >= 25
+            ? $checkIn->copy()->addMonth()->startOfMonth()
+            : $checkIn->copy()->startOfMonth();
     
         $intervalDays = match($stayType) {
             'daily' => 1,
@@ -170,30 +170,32 @@ $startDate = $checkIn->day >= 25
             default => 30,
         };
     
-        // 🔁 Generate all due periods normalized to startOfMonth
+        // Build all expected periods
         $expectedPeriods = [];
         for ($i = 0; $i < $duration; $i++) {
             $periodDate = $startDate->copy()->addDays($i * $intervalDays)->startOfMonth()->toDateString();
             $expectedPeriods[] = $periodDate;
         }
     
-        // ✅ Extract normalized paid periods
-        $paidPeriods = collect($payments)
+        // Group confirmed payments by payment_period
+        $groupedConfirmed = collect($payments)
             ->where('status', 'confirmed')
-            ->pluck('payment_period')
-            ->map(fn($p) => Carbon::parse($p)->startOfMonth()->toDateString())
-            ->unique()
-            ->values()
-            ->toArray();
+            ->groupBy(function ($p) {
+                return Carbon::parse($p['payment_period'])->startOfMonth()->toDateString();
+            });
     
-        // 🔍 Find the first unpaid period
+        // Get the unit price (assume all payments are for the same unit)
+        $unitPrice = $payments->first()['unit_price'] ?? 0;
+    
+        // Find the first period that is not fully paid
         foreach ($expectedPeriods as $period) {
-            if (!in_array($period, $paidPeriods)) {
+            $totalPaid = $groupedConfirmed[$period]?->sum('amount') ?? 0;
+            if ($totalPaid < $unitPrice) {
                 return $period;
             }
         }
     
-        return 'Completed'; // All periods paid
+        return 'Completed'; // All paid
     }
     
     
