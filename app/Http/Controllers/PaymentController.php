@@ -130,7 +130,7 @@ class PaymentController extends Controller
             'payment_type' => $paymentType,
             'payment_method' => $request->payment_method,
             'reference_number' => $request->reference_number ?? 'CASH-' . now()->timestamp,
-            'payment_period' => Carbon::parse($request->payment_for)->startOfMonth()->toDateString(),
+            'payment_period' => Carbon::parse($request->payment_for)->toDateString(),
             'receipt_path' => $receiptPath ?? $request->input('receipt_url'),  // Cloudinary URL for the receipt
             'status' => 'Pending',
         ]);
