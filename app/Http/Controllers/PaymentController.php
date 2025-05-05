@@ -157,7 +157,10 @@ class PaymentController extends Controller
             return null;
         }
     
-        $checkIn = Carbon::parse($checkInDate)->startOfDay(); // ensure baseline is clean
+        $checkIn = Carbon::parse($checkInDate);
+$startDate = $checkIn->day >= 25
+    ? $checkIn->copy()->addMonth()->startOfMonth()
+    : $checkIn->copy()->startOfMonth();
     
         $intervalDays = match($stayType) {
             'daily' => 1,
@@ -170,7 +173,7 @@ class PaymentController extends Controller
         // 🔁 Generate all due periods normalized to startOfMonth
         $expectedPeriods = [];
         for ($i = 0; $i < $duration; $i++) {
-            $periodDate = $checkIn->copy()->addDays($i * $intervalDays)->startOfMonth()->toDateString();
+            $periodDate = $startDate->copy()->addDays($i * $intervalDays)->startOfMonth()->toDateString();
             $expectedPeriods[] = $periodDate;
         }
     
@@ -520,7 +523,10 @@ public function updateStatus($user_id)
             );
     
             // Build billing months
-            $startDate = Carbon::parse($application->check_in_date);
+            $checkIn = Carbon::parse($application->check_in_date);
+$startDate = $checkIn->day >= 25
+    ? $checkIn->copy()->addMonth()->startOfMonth()
+    : $checkIn->copy()->startOfMonth();
             $months = [];
     
             $interval = match($application->stay_type) {
