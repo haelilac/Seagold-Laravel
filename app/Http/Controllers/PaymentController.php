@@ -513,6 +513,7 @@ public function updateStatus($user_id)
                     'receipt_path' => $payment->receipt_path,
                     'created_at' => $payment->created_at,
                     'remaining_balance' => $remaining,
+                    'unit_price' => $unitPrice,
                 ];
             });
             
