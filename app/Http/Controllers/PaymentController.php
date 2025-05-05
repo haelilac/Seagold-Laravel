@@ -485,7 +485,10 @@ public function updateStatus($user_id)
                 return response()->json(['error' => 'No unit assigned to this tenant.'], 404);
             }
     
-            $unitPrice = $tenant->rent_price ?? ($application->set_price ?? $unit->price);
+            $unitPrice = floatval(
+                $tenant->rent_price 
+                ?? ($application->set_price !== null ? $application->set_price : $unit->price)
+            );
             $rawPayments = \App\Models\Payment::where('user_id', $tenantId)->get();
     
             // Group confirmed payments by normalized period
