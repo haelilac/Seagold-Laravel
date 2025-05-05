@@ -154,31 +154,33 @@ class PaymentController extends Controller
     
         $checkIn = Carbon::parse($checkInDate);
     
-        $intervalDays = match($stayType) {
-            'daily' => 1,
-            'weekly' => 7,
-            'half-month' => 15,
-            'monthly' => 30,
-            default => 30,
+        $interval = match($stayType) {
+            'daily' => 'addDay',
+            'weekly' => 'addWeek',
+            'half-month' => fn($date, $i) => $date->copy()->addDays($i * 15),
+            'monthly' => 'addMonth',
+            default => 'addMonth',
         };
     
-        // Generate all periods
-        $periods = [];
+        $expectedPeriods = [];
+    
         for ($i = 0; $i < $duration; $i++) {
-            $periods[] = $checkIn->copy()->addDays($i * $intervalDays)->format('Y-m-d');
+            $date = is_callable($interval)
+                ? $interval($checkIn, $i)
+                : $checkIn->copy()->{$interval}($i);
+    
+            $expectedPeriods[] = $date->format('Y-m-d');
         }
     
-        // Get confirmed payments
-        $paidPeriods = collect($payments)->pluck('payment_period')->toArray();
+        $paidPeriods = collect($payments)->where('status', 'Confirmed')->pluck('payment_period')->toArray();
     
-        // Return the first unpaid period
-        foreach ($periods as $period) {
+        foreach ($expectedPeriods as $period) {
             if (!in_array($period, $paidPeriods)) {
-                return $period;
+                return Carbon::parse($period)->toFormattedDateString(); // e.g., "June 30, 2025"
             }
         }
     
-        return 'Completed'; // All paid
+        return 'Completed';
     }
     
 public function updateSpecificPayment($id)
