@@ -56,12 +56,11 @@ class PaymentController extends Controller
     public function store(Request $request)
     {
         $user = $request->user();
-        
+    
         if (!$user) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
     
-        // Validate the incoming request
         $request->validate([
             'amount' => 'required|numeric|min:1',
             'payment_method' => 'required|string|max:50',
@@ -71,12 +70,11 @@ class PaymentController extends Controller
             'receipt' => 'nullable|file|mimes:png,jpg,jpeg,pdf|max:2048',
         ]);
     
-        $unitId = $user->unit_id ?? null; 
+        $unitId = $user->unit_id ?? null;
         if (!$unitId) {
             return response()->json(['error' => 'Server error', 'details' => 'Tenant has no assigned unit.'], 400);
         }
     
-        // Fetch the unit model
         $unit = \App\Models\Unit::find($unitId);
         if (!$unit) {
             return response()->json(['error' => 'Unit not found.'], 404);
@@ -84,31 +82,24 @@ class PaymentController extends Controller
     
         $unitPrice = $user->rent_price ?? $unit->price ?? 0;
     
-        // Handle the receipt file upload to Cloudinary if exists
+        // Upload receipt to Cloudinary
         $receiptPath = null;
         if ($request->hasFile('receipt')) {
-            $receipt = $request->file('receipt');
-            // Upload the receipt to Cloudinary
-            $upload = Cloudinary::upload($receipt->getRealPath(), [
-                'folder' => 'payments/receipts',  // Folder where the receipts will be stored
-                'resource_type' => 'auto' // Automatically detects file type (image, pdf, etc.)
+            $upload = Cloudinary::upload($request->file('receipt')->getRealPath(), [
+                'folder' => 'payments/receipts',
+                'resource_type' => 'auto'
             ]);
-    
-            // Save the secure URL for the receipt
-            $receiptPath = $upload->getSecurePath(); // Cloudinary secure URL
+            $receiptPath = $upload->getSecurePath();
         }
     
-        // Calculate the total amount based on the stay type
         $stayType = $request->stay_type;
-        $duration = $request->duration; // Duration in days
+        $duration = $request->duration;
         $totalAmount = $this->calculateTotalAmount($stayType, $unitPrice, $duration, $unit);
     
-        // Prevent partial payments for non-monthly tenants
         if ($stayType !== 'monthly' && $request->amount < $totalAmount) {
             return response()->json(['error' => 'Partial payments are not allowed for this stay type.'], 400);
         }
     
-        // Handle duplicate payment reference number
         if (Payment::where('reference_number', $request->reference_number)->exists()) {
             return response()->json([
                 'error' => 'Duplicate Reference Number',
@@ -116,7 +107,50 @@ class PaymentController extends Controller
             ], 400);
         }
     
-        // Store payment
+        // ✅ Enforce correct period sequence (can’t skip future months)
+        $application = \App\Models\Application::where('email', $user->email)->first();
+        if (!$application) {
+            return response()->json(['error' => 'Application not found for tenant.'], 404);
+        }
+    
+        $checkIn = Carbon::parse($application->check_in_date);
+        $interval = match($stayType) {
+            'daily' => 'addDay',
+            'weekly' => 'addWeek',
+            'half-month' => fn($d, $i) => $d->copy()->addDays($i * 15),
+            'monthly' => 'addMonth',
+            default => 'addMonth',
+        };
+    
+        $expectedPeriods = [];
+        for ($i = 0; $i < $application->duration; $i++) {
+            $period = is_callable($interval)
+                ? $interval($checkIn, $i)
+                : $checkIn->copy()->{$interval}($i);
+            $expectedPeriods[] = $period->format('Y-m-d');
+        }
+    
+        $paidPeriods = Payment::where('user_id', $user->id)
+            ->pluck('payment_period')
+            ->map(fn($p) => Carbon::parse($p)->format('Y-m-d'))
+            ->toArray();
+    
+        $requestedPeriod = Carbon::parse($request->payment_for)->format('Y-m-d');
+    
+        foreach ($expectedPeriods as $expected) {
+            if (!in_array($expected, $paidPeriods)) {
+                if ($requestedPeriod !== $expected) {
+                    return response()->json([
+                        'error' => 'You must pay for the next unpaid period first.',
+                        'expected_period' => $expected,
+                        'requested_period' => $requestedPeriod
+                    ], 400);
+                }
+                break;
+            }
+        }
+    
+        // ✅ Store Payment
         $payment = Payment::create([
             'user_id' => $user->id,
             'unit_id' => $unitId,
@@ -124,9 +158,9 @@ class PaymentController extends Controller
             'remaining_balance' => $totalAmount - $request->amount,
             'payment_type' => $request->amount < $totalAmount ? 'Partially Paid' : 'Fully Paid',
             'payment_method' => $request->payment_method,
-            'reference_number' => $request->reference_number,
+            'reference_number' => $request->reference_number ?? 'CASH-' . now()->timestamp,
             'payment_period' => $request->payment_for,
-            'receipt_path' => $receiptPath,  // Cloudinary URL for the receipt
+            'receipt_path' => $receiptPath,
             'status' => 'Pending',
         ]);
     
@@ -135,10 +169,9 @@ class PaymentController extends Controller
             'Payment Submitted',
             "Your payment for {$request->payment_for} has been submitted and is awaiting confirmation.",
             now()->format('M d, Y - h:i A'),
-            'billing' // ✅ Pass type
+            'billing'
         ));
-        
-
+    
         return response()->json([
             'message' => 'Payment recorded successfully!',
             'payment' => $payment,
