@@ -125,7 +125,7 @@ class PaymentController extends Controller
             'payment_type' => $request->amount < $totalAmount ? 'Partially Paid' : 'Fully Paid',
             'payment_method' => $request->payment_method,
             'reference_number' => $request->reference_number,
-            'payment_period' => $request->payment_for,
+            'payment_period' => $request->payment_for . '-01',
             'receipt_path' => $receiptPath,  // Cloudinary URL for the receipt
             'status' => 'Pending',
         ]);
