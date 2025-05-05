@@ -344,23 +344,37 @@ public function updateStatus($user_id)
     
             $payments = $query->get();
     
-            $formattedPayments = $payments->map(function ($payment) {
-                return [
-                    'id' => $payment->id,
-                    'user_id' => $payment->user_id,
-                    'tenant_name' => $payment->user?->name ?? 'N/A',
-                    'unit_code' => $payment->unit?->unit_code ?? 'N/A',
-                    'amount' => $payment->amount,
-                    'total_due' => $payment->amount + $payment->remaining_balance,
-                    'payment_type' => $payment->payment_type,
-                    'payment_method' => $payment->payment_method,
-                    'reference_number' => $payment->reference_number,
-                    'payment_period' => Carbon::parse($payment->payment_period)->toDateString(),
-                    'remaining_balance' => $payment->remaining_balance,
-                    'submitted_at' => $payment->created_at->toDateString(),
-                    'status' => $payment->status,
-                    'receipt_path' => $payment->receipt_path ?? null,
-                ];
+            $paymentsByPeriod = [];
+
+            foreach ($payments as $p) {
+                $key = $p->user_id . '|' . $p->payment_period;
+                $paymentsByPeriod[$key][] = $p;
+            }
+            
+            $formattedPayments = collect($paymentsByPeriod)->flatMap(function ($group, $key) {
+                [$userId, $period] = explode('|', $key);
+                $unitPrice = $group[0]->user->rent_price ?? $group[0]->unit->price ?? 0;
+            
+                $totalPaid = collect($group)->where('status', 'Confirmed')->sum('amount');
+            
+                return collect($group)->map(function ($payment) use ($totalPaid, $unitPrice) {
+                    return [
+                        'id' => $payment->id,
+                        'user_id' => $payment->user_id,
+                        'tenant_name' => $payment->user?->name ?? 'N/A',
+                        'unit_code' => $payment->unit?->unit_code ?? 'N/A',
+                        'amount' => $payment->amount,
+                        'total_due' => $unitPrice,
+                        'payment_type' => $payment->payment_type,
+                        'payment_method' => $payment->payment_method,
+                        'reference_number' => $payment->reference_number,
+                        'payment_period' => Carbon::parse($payment->payment_period)->toDateString(),
+                        'remaining_balance' => max($unitPrice - $totalPaid, 0),
+                        'submitted_at' => $payment->created_at->toDateString(),
+                        'status' => $payment->status,
+                        'receipt_path' => $payment->receipt_path ?? null,
+                    ];
+                });
             });
     
             return response()->json($formattedPayments);
