@@ -127,7 +127,6 @@ class PaymentController extends Controller
             'user_id' => $user->id,
             'unit_id' => $unitId,
             'amount' => $sanitizedAmount,
-            'remaining_balance' => $totalAmount - $sanitizedAmount,
             'payment_type' => $paymentType,
             'payment_method' => $request->payment_method,
             'reference_number' => $request->reference_number,
@@ -498,21 +497,18 @@ public function updateStatus($user_id)
             // Calculate the unpaid balances for each month
             $totalPaidPerMonth = [];
     
-            foreach ($payments as $payment) {
-                $month = $payment->payment_period;
-                if (!isset($totalPaidPerMonth[$month])) {
-                    $totalPaidPerMonth[$month] = 0;
-                }
-                $totalPaidPerMonth[$month] += $payment->amount;
+            $paymentsGrouped = [];
+
+            foreach ($payments as $p) {
+                if ($p->status !== 'Confirmed') continue; // Ignore unconfirmed
+                $month = $p->payment_period;
+                $paymentsGrouped[$month] = ($paymentsGrouped[$month] ?? 0) + $p->amount;
             }
-    
-            // Calculate remaining balance for each month
+            
             foreach ($months as $month) {
-                $amountPaid = $totalPaidPerMonth[$month] ?? 0; // Defaults to 0 if no payment found
-                $remainingBalance = max(0, $unitPrice - $amountPaid);
-                $unpaidBalances[$month] = $remainingBalance;
+                $paid = $paymentsGrouped[$month] ?? 0;
+                $unpaidBalances[$month] = max(0, $unitPrice - $paid);
             }
-    
             return response()->json([
                 'unit_price' => $unitPrice,
                 'payments' => $payments,
