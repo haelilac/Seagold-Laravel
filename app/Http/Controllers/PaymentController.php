@@ -32,7 +32,7 @@ class PaymentController extends Controller
     
         $unpaidTenants = User::where('role', 'tenant')
             ->whereDoesntHave('payments', function ($query) use ($currentMonth) {
-                $query->where('payment_period', 'like', "$currentMonth%")->where('status', 'Confirmed');
+                $query->where('payment_period', 'like', "$currentMonth%")->where('status', 'confirmed');
 
             })
             ->with('unit')
@@ -189,7 +189,7 @@ class PaymentController extends Controller
 public function updateSpecificPayment($id)
 {
     $payment = Payment::where('id', $id)->where('status', 'Pending')->firstOrFail();
-    $payment->update(['status' => 'Confirmed']);
+    $payment->update(['status' => 'confirmed']);
 
     return response()->json(['message' => 'Payment confirmed successfully!', 'payment' => $payment]);
 }
@@ -204,7 +204,7 @@ public function confirmLatestPayment($user_id)
         return response()->json(['message' => 'No pending payment found for this user.'], 404);
     }
 
-    $payment->update(['status' => 'Confirmed']);
+    $payment->update(['status' => 'confirmed']);
     event(new \App\Events\NewTenantNotificationEvent(
         $payment->user_id,
         'Payment Confirmed',
@@ -273,7 +273,7 @@ public function updateStatus($user_id)
         return response()->json(['message' => 'No pending payment found for the current month.'], 404);
     }
 
-    $payment->update(['status' => 'Confirmed']);
+    $payment->update(['status' => 'confirmed']);
 
     return response()->json([
         'message' => 'Payment confirmed successfully!',
@@ -355,7 +355,7 @@ public function updateStatus($user_id)
                 [$userId, $period] = explode('|', $key);
                 $unitPrice = $group[0]->user->rent_price ?? $group[0]->unit->price ?? 0;
             
-                $totalPaid = collect($group)->where('status', 'Confirmed')->sum('amount');
+                $totalPaid = collect($group)->where('status', 'confirmed')->sum('amount');
             
                 return collect($group)->map(function ($payment) use ($totalPaid, $unitPrice) {
                     return [
@@ -388,7 +388,7 @@ public function updateStatus($user_id)
     public function paymentSummary()
     {
         try {
-            $totalConfirmed = Payment::where('status', 'Confirmed')->sum('amount');
+            $totalConfirmed = Payment::where('status', 'confirmed')->sum('amount');
             $pendingPayments = Payment::where('status', 'Pending')->count();
     
             // Dynamically calculate the outstanding balance for tenants
@@ -397,7 +397,7 @@ public function updateStatus($user_id)
                 ->get()
                 ->sum(function ($tenant) {
                     $totalDue = optional($tenant->unit)->price * optional($tenant->application)->duration ?? 1;
-                    $totalPaid = $tenant->payments->where('status', 'Confirmed')->sum('amount');
+                    $totalPaid = $tenant->payments->where('status', 'confirmed')->sum('amount');
                     return max($totalDue - $totalPaid, 0); // Ensure non-negative balance
                 });
     
@@ -482,7 +482,7 @@ public function updateStatus($user_id)
             // Group confirmed payments by payment period
             $paymentsGrouped = [];
             foreach ($rawPayments as $p) {
-                if ($p->status !== 'Confirmed') continue;
+                if ($p->status !== 'ccnfirmed') continue;
                 $month = $p->payment_period;
                 $paymentsGrouped[$month] = ($paymentsGrouped[$month] ?? 0) + $p->amount;
             }
@@ -491,7 +491,7 @@ public function updateStatus($user_id)
             $payments = $rawPayments->map(function ($payment) use ($unitPrice, $rawPayments) {
                 $totalPaidForPeriod = $rawPayments
                     ->where('payment_period', $payment->payment_period)
-                    ->where('status', 'Confirmed')
+                    ->where('status', 'confirmed')
                     ->sum('amount');
             
                 $remaining = max(0, $unitPrice - $totalPaidForPeriod);
