@@ -462,24 +462,20 @@ public function updateStatus($user_id)
         try {
             $tenant = User::findOrFail($tenantId);
             $application = \App\Models\Application::where('email', $tenant->email)->first();
-
+    
             if (!$application) {
                 return response()->json(['error' => 'No application record found for this tenant.'], 404);
             }
-            // Fetch the unit assigned to the tenant
-            $unit = Unit::find($application->unit_id);
     
+            $unit = Unit::find($application->unit_id);
             if (!$unit) {
                 return response()->json(['error' => 'No unit assigned to this tenant.'], 404);
             }
     
-            // Use set_price from applications table if available, otherwise use original unit price
             $unitPrice = $tenant->rent_price ?? ($application->set_price ?? $unit->price);
-    
-            // Retrieve all payments made by the user
             $rawPayments = \App\Models\Payment::where('user_id', $tenantId)->get();
     
-            // Group confirmed payments by payment period
+            // Group confirmed payments by normalized period
             $paymentsGrouped = [];
             foreach ($rawPayments as $p) {
                 if ($p->status !== 'confirmed') continue;
@@ -487,13 +483,15 @@ public function updateStatus($user_id)
                 $paymentsGrouped[$month] = ($paymentsGrouped[$month] ?? 0) + $p->amount;
             }
     
-            // Map payments with remaining balance
+            // Map with correct normalized remaining balance
             $payments = $rawPayments->map(function ($payment) use ($unitPrice, $rawPayments) {
+                $period = Carbon::parse($payment->payment_period)->startOfMonth()->format('Y-m-d');
+    
                 $totalPaidForPeriod = $rawPayments
-                    ->where('payment_period', $payment->payment_period)
+                    ->filter(fn($p) => Carbon::parse($p->payment_period)->startOfMonth()->format('Y-m-d') === $period)
                     ->where('status', 'confirmed')
                     ->sum('amount');
-            
+    
                 $remaining = max(0, $unitPrice - $totalPaidForPeriod);
     
                 return [
@@ -517,7 +515,7 @@ public function updateStatus($user_id)
                 $payments
             );
     
-            // Generate all billing months based on stay type and duration
+            // Build billing months
             $startDate = Carbon::parse($application->check_in_date);
             $months = [];
     
@@ -538,7 +536,6 @@ public function updateStatus($user_id)
                 $months[] = $paymentDate->copy()->startOfMonth()->format('Y-m-d'); 
             }
     
-            // Compute unpaid balances for each month
             $unpaidBalances = [];
             foreach ($months as $month) {
                 $paid = $paymentsGrouped[$month] ?? 0;
@@ -562,4 +559,5 @@ public function updateStatus($user_id)
     }
     
     
+
 }
