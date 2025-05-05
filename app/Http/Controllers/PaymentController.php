@@ -484,16 +484,11 @@ public function updateStatus($user_id)
             }
     
             // Map with correct normalized remaining balance
-            $payments = $rawPayments->map(function ($payment) use ($unitPrice, $rawPayments) {
+            $payments = $rawPayments->map(function ($payment) use ($unitPrice, $paymentsGrouped) {
                 $period = Carbon::parse($payment->payment_period)->startOfMonth()->format('Y-m-d');
-    
-                $totalPaidForPeriod = $rawPayments
-                    ->filter(fn($p) => Carbon::parse($p->payment_period)->startOfMonth()->format('Y-m-d') === $period)
-                    ->where('status', 'confirmed')
-                    ->sum('amount');
-    
+                $totalPaidForPeriod = $paymentsGrouped[$period] ?? 0;
                 $remaining = max(0, $unitPrice - $totalPaidForPeriod);
-    
+            
                 return [
                     'id' => $payment->id,
                     'payment_period' => $payment->payment_period,
@@ -507,6 +502,7 @@ public function updateStatus($user_id)
                     'remaining_balance' => $remaining,
                 ];
             });
+            
     
             $dueDate = $this->calculateNextDueDate(
                 $application->check_in_date,
