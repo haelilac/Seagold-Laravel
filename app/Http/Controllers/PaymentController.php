@@ -461,8 +461,11 @@ public function updateStatus($user_id)
     {
         try {
             $tenant = User::findOrFail($tenantId);
-            $application = \App\Models\Application::where('email', $tenant->email)->firstOrFail();
-    
+            $application = \App\Models\Application::where('email', $tenant->email)->first();
+
+            if (!$application) {
+                return response()->json(['error' => 'No application record found for this tenant.'], 404);
+            }
             // Fetch the unit assigned to the tenant
             $unit = Unit::find($application->unit_id);
     
