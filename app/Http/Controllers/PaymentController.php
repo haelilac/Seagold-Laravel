@@ -475,18 +475,20 @@ public function updateStatus($user_id)
     
             // Retrieve all payments made by the user
             $rawPayments = \App\Models\Payment::where('user_id', $tenantId)->get();
-
+    
+            // Group confirmed payments by payment period
             $paymentsGrouped = [];
             foreach ($rawPayments as $p) {
                 if ($p->status !== 'Confirmed') continue;
                 $month = $p->payment_period;
                 $paymentsGrouped[$month] = ($paymentsGrouped[$month] ?? 0) + $p->amount;
             }
-            
+    
+            // Map payments with remaining balance
             $payments = $rawPayments->map(function ($payment) use ($unitPrice, $paymentsGrouped) {
                 $paid = $paymentsGrouped[$payment->payment_period] ?? 0;
                 $remaining = max(0, $unitPrice - $paid);
-            
+    
                 return [
                     'id' => $payment->id,
                     'payment_period' => $payment->payment_period,
@@ -500,28 +502,26 @@ public function updateStatus($user_id)
                     'remaining_balance' => $remaining,
                 ];
             });
-            $unpaidBalances = [];
+    
             $dueDate = $this->calculateNextDueDate(
                 $application->check_in_date,
                 $application->duration,
                 $application->stay_type,
                 $payments
             );
-            
-            // Generate months based on duration and check-in date
+    
+            // Generate all billing months based on stay type and duration
             $startDate = Carbon::parse($application->check_in_date);
             $months = [];
     
-            $months = [];
-
             $interval = match($application->stay_type) {
                 'daily' => 'addDays',
                 'weekly' => 'addWeeks',
-                'half-month' => function($date, $i) { return $date->copy()->addDays($i * 15); }, // Special case
+                'half-month' => function($date, $i) { return $date->copy()->addDays($i * 15); },
                 'monthly' => 'addMonths',
                 default => 'addMonths',
             };
-            
+    
             for ($i = 0; $i < $application->duration; $i++) {
                 if (is_callable($interval)) {
                     $paymentDate = $interval($startDate, $i);
@@ -531,21 +531,13 @@ public function updateStatus($user_id)
                 $months[] = $paymentDate->format('Y-m-d');
             }
     
-            // Calculate the unpaid balances for each month
-            $totalPaidPerMonth = [];
-    
-            $paymentsGrouped = [];
-
-            foreach ($payments as $p) {
-                if ($p->status !== 'Confirmed') continue; // Ignore unconfirmed
-                $month = $p->payment_period;
-                $paymentsGrouped[$month] = ($paymentsGrouped[$month] ?? 0) + $p->amount;
-            }
-            
+            // Compute unpaid balances for each month
+            $unpaidBalances = [];
             foreach ($months as $month) {
                 $paid = $paymentsGrouped[$month] ?? 0;
                 $unpaidBalances[$month] = max(0, $unitPrice - $paid);
             }
+    
             return response()->json([
                 'unit_price' => $unitPrice,
                 'payments' => $payments,
@@ -555,6 +547,7 @@ public function updateStatus($user_id)
                 'stay_type' => $application->stay_type,
                 'unpaid_balances' => $unpaidBalances,
             ], 200);
+    
         } catch (\Exception $e) {
             \Log::error('Failed to fetch tenant payments: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to fetch tenant payments.'], 500);
