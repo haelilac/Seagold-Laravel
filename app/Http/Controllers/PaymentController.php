@@ -526,8 +526,9 @@ public function updateStatus($user_id)
     
             // Calculate the unpaid balances for each month
             $totalPaidPerMonth = [];
-    
+
             foreach ($payments as $payment) {
+                if ($payment->status !== 'Confirmed') continue; // ✅ Only count confirmed payments
                 $month = $payment->payment_period;
                 if (!isset($totalPaidPerMonth[$month])) {
                     $totalPaidPerMonth[$month] = 0;
