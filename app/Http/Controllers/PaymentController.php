@@ -66,7 +66,7 @@ class PaymentController extends Controller
             'payment_method' => 'required|string|max:50',
             'payment_type' => 'required|string|max:50',
             'reference_number' => 'nullable|string|max:50',
-            'payment_for' => 'required|date',
+            'payment_for' => 'required|date_format:Y-m',
             'receipt' => 'nullable|file|mimes:png,jpg,jpeg,pdf|max:2048',
         ]);
     
