@@ -482,7 +482,7 @@ public function updateStatus($user_id)
             // Group confirmed payments by payment period
             $paymentsGrouped = [];
             foreach ($rawPayments as $p) {
-                if ($p->status !== 'ccnfirmed') continue;
+                if ($p->status !== 'confirmed') continue;
                 $month = $p->payment_period;
                 $paymentsGrouped[$month] = ($paymentsGrouped[$month] ?? 0) + $p->amount;
             }
