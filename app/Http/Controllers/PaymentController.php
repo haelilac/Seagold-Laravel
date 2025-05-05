@@ -529,7 +529,7 @@ public function updateStatus($user_id)
 
             foreach ($payments as $payment) {
                 if ($payment->status !== 'Confirmed') continue; // ✅ Only count confirmed payments
-                $month = $payment->payment_period;
+                $month = Carbon::parse($payment->payment_period)->startOfMonth()->format('Y-m-d');
                 if (!isset($totalPaidPerMonth[$month])) {
                     $totalPaidPerMonth[$month] = 0;
                 }
