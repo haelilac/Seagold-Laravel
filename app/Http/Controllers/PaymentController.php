@@ -474,9 +474,32 @@ public function updateStatus($user_id)
             $unitPrice = $tenant->rent_price ?? ($application->set_price ?? $unit->price);
     
             // Retrieve all payments made by the user
-            $payments = \App\Models\Payment::where('user_id', $tenantId)
-            ->get();
-    
+            $rawPayments = \App\Models\Payment::where('user_id', $tenantId)->get();
+
+            $paymentsGrouped = [];
+            foreach ($rawPayments as $p) {
+                if ($p->status !== 'Confirmed') continue;
+                $month = $p->payment_period;
+                $paymentsGrouped[$month] = ($paymentsGrouped[$month] ?? 0) + $p->amount;
+            }
+            
+            $payments = $rawPayments->map(function ($payment) use ($unitPrice, $paymentsGrouped) {
+                $paid = $paymentsGrouped[$payment->payment_period] ?? 0;
+                $remaining = max(0, $unitPrice - $paid);
+            
+                return [
+                    'id' => $payment->id,
+                    'payment_period' => $payment->payment_period,
+                    'amount' => $payment->amount,
+                    'payment_type' => $payment->payment_type,
+                    'payment_method' => $payment->payment_method,
+                    'reference_number' => $payment->reference_number,
+                    'status' => $payment->status,
+                    'receipt_path' => $payment->receipt_path,
+                    'created_at' => $payment->created_at,
+                    'remaining_balance' => $remaining,
+                ];
+            });
             $unpaidBalances = [];
             $dueDate = $this->calculateNextDueDate(
                 $application->check_in_date,
