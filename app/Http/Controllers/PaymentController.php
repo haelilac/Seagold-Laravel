@@ -488,9 +488,13 @@ public function updateStatus($user_id)
             }
     
             // Map payments with remaining balance
-            $payments = $rawPayments->map(function ($payment) use ($unitPrice, $paymentsGrouped) {
-                $paid = $paymentsGrouped[$payment->payment_period] ?? 0;
-                $remaining = max(0, $unitPrice - $paid);
+            $payments = $rawPayments->map(function ($payment) use ($unitPrice, $rawPayments) {
+                $totalPaidForPeriod = $rawPayments
+                    ->where('payment_period', $payment->payment_period)
+                    ->where('status', 'Confirmed')
+                    ->sum('amount');
+            
+                $remaining = max(0, $unitPrice - $totalPaidForPeriod);
     
                 return [
                     'id' => $payment->id,
