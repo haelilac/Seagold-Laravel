@@ -157,7 +157,7 @@ class PaymentController extends Controller
             return null;
         }
     
-        $checkIn = Carbon::parse($checkInDate);
+        $checkIn = Carbon::parse($checkInDate)->startOfDay(); // ensure baseline is clean
     
         $intervalDays = match($stayType) {
             'daily' => 1,
@@ -167,24 +167,32 @@ class PaymentController extends Controller
             default => 30,
         };
     
-        // Generate all periods
-        $periods = [];
+        // 🔁 Generate all due periods normalized to startOfMonth
+        $expectedPeriods = [];
         for ($i = 0; $i < $duration; $i++) {
-            $periods[] = $checkIn->copy()->addDays($i * $intervalDays)->format('Y-m-d');
+            $periodDate = $checkIn->copy()->addDays($i * $intervalDays)->startOfMonth()->toDateString();
+            $expectedPeriods[] = $periodDate;
         }
     
-        // Get confirmed payments
-        $paidPeriods = collect($payments)->pluck('payment_period')->toArray();
+        // ✅ Extract normalized paid periods
+        $paidPeriods = collect($payments)
+            ->where('status', 'confirmed')
+            ->pluck('payment_period')
+            ->map(fn($p) => Carbon::parse($p)->startOfMonth()->toDateString())
+            ->unique()
+            ->values()
+            ->toArray();
     
-        // Return the first unpaid period
-        foreach ($periods as $period) {
+        // 🔍 Find the first unpaid period
+        foreach ($expectedPeriods as $period) {
             if (!in_array($period, $paidPeriods)) {
                 return $period;
             }
         }
     
-        return 'Completed'; // All paid
+        return 'Completed'; // All periods paid
     }
+    
     
 public function updateSpecificPayment($id)
 {
