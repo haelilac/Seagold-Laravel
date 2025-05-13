@@ -186,8 +186,11 @@ public function store(Request $request)
 
     
         // Get confirmed payments
-        $paidPeriods = collect($payments)->pluck('payment_period')->toArray();
-    
+        $paidPeriods = collect($payments)
+            ->where('status', 'Confirmed') // ✅ filter only confirmed
+            ->pluck('payment_period')
+            ->toArray();
+            
         // Return the first unpaid period
         foreach ($periods as $period) {
             if (!in_array($period, $paidPeriods)) {
