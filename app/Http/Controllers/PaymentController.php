@@ -161,45 +161,44 @@ public function store(Request $request)
 
     
     
-    private function calculateNextDueDate($checkInDate, $duration, $stayType, $payments)
-    {
-        if (!$checkInDate || !$duration) {
-            return null;
-        }
-    
-        $checkIn = Carbon::parse($checkInDate);
-    
-        $periods = [];
-        $day = $checkIn->day;
-
-        for ($i = 0; $i < $duration; $i++) {
-            $nextDate = match($stayType) {
-                'daily' => $checkIn->copy()->addDays($i),
-                'weekly' => $checkIn->copy()->addWeeks($i),
-                'half-month' => $checkIn->copy()->addDays($i * 15),
-                'monthly' => $checkIn->copy()->addMonths($i)->day($day),
-                default => $checkIn->copy()->addMonths($i)->day($day),
-            };
-
-            $periods[] = $nextDate->format('Y-m-d');
-        }
-
-    
-        // Get confirmed payments
-        $paidPeriods = collect($payments)
-            ->where('status', 'Confirmed') // ✅ filter only confirmed
-            ->pluck('payment_period')
-            ->toArray();
-            
-        // Return the first unpaid period
-        foreach ($periods as $period) {
-            if (!in_array($period, $paidPeriods)) {
-                return $period;
-            }
-        }
-    
-        return 'Completed'; // All paid
+private function calculateNextDueDate($checkInDate, $duration, $stayType, $payments)
+{
+    if (!$checkInDate || !$duration) {
+        return null;
     }
+
+    $checkIn = Carbon::parse($checkInDate);
+    $day = $checkIn->day;
+    $periods = [];
+
+    for ($i = 0; $i < $duration; $i++) {
+        $nextDate = match($stayType) {
+            'daily' => $checkIn->copy()->addDays($i),
+            'weekly' => $checkIn->copy()->addWeeks($i),
+            'half-month' => $checkIn->copy()->addDays($i * 15),
+            'monthly' => $checkIn->copy()->addMonths($i)->day($day),
+            default => $checkIn->copy()->addMonths($i)->day($day),
+        };
+
+        $periods[] = $nextDate;
+    }
+
+    $paidPeriods = collect($payments)
+        ->where('status', 'Confirmed')
+        ->map(fn($p) => Carbon::parse($p->payment_period)->format('Y-m')) // Normalize to '2025-04'
+        ->toArray();
+
+    // ✅ Return first unpaid period using full date
+    foreach ($periods as $fullDate) {
+        $monthKey = $fullDate->format('Y-m');
+        if (!in_array($monthKey, $paidPeriods)) {
+            return $fullDate->format('Y-m-d'); // Return full date with day
+        }
+    }
+
+    return 'Completed';
+}
+
     
 public function updateSpecificPayment($id)
 {
