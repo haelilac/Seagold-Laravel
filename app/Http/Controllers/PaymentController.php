@@ -109,7 +109,10 @@ class PaymentController extends Controller
         }
     
         // Handle duplicate payment reference number
-        if (Payment::where('reference_number', $request->reference_number)->exists()) {
+        if (
+            $request->payment_method !== 'Cash' &&
+            Payment::where('reference_number', $request->reference_number)->exists()
+        ) {
             return response()->json([
                 'error' => 'Duplicate Reference Number',
                 'details' => 'The reference number has already been used. Please enter a new one.'
