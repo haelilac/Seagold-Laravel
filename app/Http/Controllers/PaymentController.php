@@ -53,100 +53,101 @@ class PaymentController extends Controller
     }
     
     
-    public function store(Request $request)
-    {
-        $user = $request->user();
-        
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
-    
-        // Validate the incoming request
-        $request->validate([
-            'amount' => 'required|numeric|min:1',
-            'payment_method' => 'required|string|max:50',
-            'payment_type' => 'required|string|max:50',
-            'reference_number' => 'nullable|string|max:50',
-            'payment_for' => 'required|date',
-            'receipt' => 'nullable|file|mimes:png,jpg,jpeg,pdf|max:2048',
+public function store(Request $request)
+{
+    $user = $request->user();
+
+    if (!$user) {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+
+    // ✅ Validate multiple dates
+    $request->validate([
+        'amount' => 'required|numeric|min:1',
+        'payment_method' => 'required|string|max:50',
+        'payment_type' => 'required|string|max:50',
+        'reference_number' => 'nullable|string|max:50',
+        'payment_for' => 'required|array|min:1',
+        'payment_for.*' => 'required|date',
+        'receipt' => 'nullable|file|mimes:png,jpg,jpeg,pdf|max:2048',
+    ]);
+
+    $unitId = $user->unit_id ?? null;
+    if (!$unitId) {
+        return response()->json(['error' => 'Server error', 'details' => 'Tenant has no assigned unit.'], 400);
+    }
+
+    $unit = \App\Models\Unit::find($unitId);
+    if (!$unit) {
+        return response()->json(['error' => 'Unit not found.'], 404);
+    }
+
+    $unitPrice = $user->rent_price ?? $unit->price ?? 0;
+    $stayType = $request->stay_type;
+    $duration = $request->duration;
+    $totalAmount = $this->calculateTotalAmount($stayType, $unitPrice, $duration, $unit);
+
+    // ✅ Partial payment not allowed for non-monthly
+    if ($stayType !== 'monthly' && $request->amount < $totalAmount) {
+        return response()->json(['error' => 'Partial payments are not allowed for this stay type.'], 400);
+    }
+
+    // ✅ Reference number should be unique if not cash
+    if (
+        $request->payment_method !== 'Cash' &&
+        Payment::where('reference_number', $request->reference_number)->exists()
+    ) {
+        return response()->json([
+            'error' => 'Duplicate Reference Number',
+            'details' => 'The reference number has already been used. Please enter a new one.'
+        ], 400);
+    }
+
+    // ✅ Upload only once
+    $receiptPath = null;
+    if ($request->hasFile('receipt')) {
+        $upload = Cloudinary::upload($request->file('receipt')->getRealPath(), [
+            'folder' => 'payments/receipts',
+            'resource_type' => 'auto'
         ]);
-    
-        $unitId = $user->unit_id ?? null; 
-        if (!$unitId) {
-            return response()->json(['error' => 'Server error', 'details' => 'Tenant has no assigned unit.'], 400);
-        }
-    
-        // Fetch the unit model
-        $unit = \App\Models\Unit::find($unitId);
-        if (!$unit) {
-            return response()->json(['error' => 'Unit not found.'], 404);
-        }
-    
-        $unitPrice = $user->rent_price ?? $unit->price ?? 0;
-    
-        // Handle the receipt file upload to Cloudinary if exists
-        $receiptPath = null;
-        if ($request->hasFile('receipt')) {
-            $receipt = $request->file('receipt');
-            // Upload the receipt to Cloudinary
-            $upload = Cloudinary::upload($receipt->getRealPath(), [
-                'folder' => 'payments/receipts',  // Folder where the receipts will be stored
-                'resource_type' => 'auto' // Automatically detects file type (image, pdf, etc.)
-            ]);
-    
-            // Save the secure URL for the receipt
-            $receiptPath = $upload->getSecurePath(); // Cloudinary secure URL
-        }
-    
-        // Calculate the total amount based on the stay type
-        $stayType = $request->stay_type;
-        $duration = $request->duration; // Duration in days
-        $totalAmount = $this->calculateTotalAmount($stayType, $unitPrice, $duration, $unit);
-    
-        // Prevent partial payments for non-monthly tenants
-        if ($stayType !== 'monthly' && $request->amount < $totalAmount) {
-            return response()->json(['error' => 'Partial payments are not allowed for this stay type.'], 400);
-        }
-    
-        // Handle duplicate payment reference number
-        if (
-            $request->payment_method !== 'Cash' &&
-            Payment::where('reference_number', $request->reference_number)->exists()
-        ) {
-            return response()->json([
-                'error' => 'Duplicate Reference Number',
-                'details' => 'The reference number has already been used. Please enter a new one.'
-            ], 400);
-        }
-    
-        // Store payment
+        $receiptPath = $upload->getSecurePath();
+    }
+
+    $paymentPeriods = $request->payment_for;
+    $amountPerPeriod = round($request->amount / count($paymentPeriods), 2);
+    $payments = [];
+
+    foreach ($paymentPeriods as $period) {
         $payment = Payment::create([
             'user_id' => $user->id,
             'unit_id' => $unitId,
-            'amount' => $request->amount,
-            'remaining_balance' => $totalAmount - $request->amount,
-            'payment_type' => $request->amount < $totalAmount ? 'Partially Paid' : 'Fully Paid',
+            'amount' => $amountPerPeriod,
+            'remaining_balance' => 0,
+            'payment_type' => 'Fully Paid',
             'payment_method' => $request->payment_method,
             'reference_number' => $request->reference_number,
-            'payment_period' => $request->payment_for . '-01',
-            'receipt_path' => $receiptPath,  // Cloudinary URL for the receipt
+            'payment_period' => $period . '-01',
+            'receipt_path' => $receiptPath,
             'status' => 'Pending',
         ]);
-    
+
+        $payments[] = $payment;
+
         event(new \App\Events\NewTenantNotificationEvent(
             $user->id,
             'Payment Submitted',
-            "Your payment for {$request->payment_for} has been submitted and is awaiting confirmation.",
+            "Your payment for {$period} has been submitted and is awaiting confirmation.",
             now()->format('M d, Y - h:i A'),
-            'billing' // ✅ Pass type
+            'billing'
         ));
-        
-
-        return response()->json([
-            'message' => 'Payment recorded successfully!',
-            'payment' => $payment,
-        ], 200);
     }
+
+    return response()->json([
+        'message' => 'Payment recorded successfully!',
+        'payments' => $payments, // ✅ plural for clarity
+    ], 200);
+}
+
     
     
     private function calculateNextDueDate($checkInDate, $duration, $stayType, $payments)
@@ -507,7 +508,8 @@ public function updateStatus($user_id)
             foreach ($months as $month) {
                 $amountPaid = $totalPaidPerMonth[$month] ?? 0; // Defaults to 0 if no payment found
                 $remainingBalance = max(0, $unitPrice - $amountPaid);
-                $unpaidBalances[$month] = $remainingBalance;
+                $monthKey = \Carbon\Carbon::parse($month)->format('Y-m');
+                $unpaidBalances[$monthKey] = $remainingBalance;
             }
     
             return response()->json([
