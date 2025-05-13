@@ -61,6 +61,7 @@ public static function send($phone, $message)
             'apikey' => env('SEMAPHORE_API_KEY'),
             'number' => $phone,
             'message' => $message,
+            'sender_name' => 'SEAGOLD' // 👈 Added sender name
         ]);
 
         if ($response->successful()) {
