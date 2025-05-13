@@ -117,6 +117,16 @@ public function store(Request $request)
     $amountPerPeriod = round($request->amount / count($paymentPeriods), 2);
     $payments = [];
 
+    // ✅ Get the check-in day once outside the loop
+    $checkInDay = str_pad(
+        optional($user->application)->check_in_date
+            ? Carbon::parse($user->application->check_in_date)->day
+            : 1,
+        2,
+        '0',
+        STR_PAD_LEFT
+    );
+
     foreach ($paymentPeriods as $period) {
         $payment = Payment::create([
             'user_id' => $user->id,
@@ -126,7 +136,7 @@ public function store(Request $request)
             'payment_type' => 'Fully Paid',
             'payment_method' => $request->payment_method,
             'reference_number' => $request->reference_number,
-            'payment_period' => $period . '-01',
+            'payment_period' => $period . '-' . $checkInDay,
             'receipt_path' => $receiptPath,
             'status' => 'Pending',
         ]);
@@ -141,6 +151,7 @@ public function store(Request $request)
             'billing'
         ));
     }
+
 
     return response()->json([
         'message' => 'Payment recorded successfully!',
@@ -158,19 +169,21 @@ public function store(Request $request)
     
         $checkIn = Carbon::parse($checkInDate);
     
-        $intervalDays = match($stayType) {
-            'daily' => 1,
-            'weekly' => 7,
-            'half-month' => 15,
-            'monthly' => 30,
-            default => 30,
-        };
-    
-        // Generate all periods
         $periods = [];
+        $day = $checkIn->day;
+
         for ($i = 0; $i < $duration; $i++) {
-            $periods[] = $checkIn->copy()->addDays($i * $intervalDays)->format('Y-m-d');
+            $nextDate = match($stayType) {
+                'daily' => $checkIn->copy()->addDays($i),
+                'weekly' => $checkIn->copy()->addWeeks($i),
+                'half-month' => $checkIn->copy()->addDays($i * 15),
+                'monthly' => $checkIn->copy()->addMonths($i)->day($day),
+                default => $checkIn->copy()->addMonths($i)->day($day),
+            };
+
+            $periods[] = $nextDate->format('Y-m-d');
         }
+
     
         // Get confirmed payments
         $paidPeriods = collect($payments)->pluck('payment_period')->toArray();
