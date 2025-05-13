@@ -183,16 +183,18 @@ private function calculateNextDueDate($checkInDate, $duration, $stayType, $payme
         $periods[] = $nextDate;
     }
 
-    $paidPeriods = collect($payments)
-        ->where('status', 'Confirmed')
-        ->map(fn($p) => Carbon::parse($p->payment_period)->format('Y-m')) // Normalize to '2025-04'
-        ->toArray();
+$paidPeriods = collect($payments)
+    ->where('status', 'Confirmed')
+    ->map(fn($p) => Carbon::parse($p->payment_period)->format('Y-m-d'))
+    ->toArray();
 
     // ✅ Return first unpaid period using full date
     foreach ($periods as $fullDate) {
-        $monthKey = $fullDate->format('Y-m');
-        if (!in_array($monthKey, $paidPeriods)) {
+        $dayKey = $fullDate->format('Y-m-d');
+        if (!in_array($dayKey, $paidPeriods)) {
             return $fullDate->format('Y-m-d'); // Return full date with day
+            \Log::info("Paid Periods: ", $paidPeriods);
+\Log::info("All Periods: ", array_map(fn($d) => $d->format('Y-m-d'), $periods));
         }
     }
 
