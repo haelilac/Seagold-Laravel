@@ -213,17 +213,7 @@ class UnitController extends Controller
         $units = Unit::where('unit_code', $unit_code)->get();
         return response()->json($units);
     }
-
-    public function getTenantsByUnitCode($unit_code)
-{
-    $unitIds = Unit::where('unit_code', $unit_code)->pluck('id');
-
-    $tenants = User::whereIn('unit_id', $unitIds)
-        ->select('id', 'name', 'email', 'stay_type', 'unit_id')
-        ->get();
-
-    return response()->json($tenants);
-}
+    
 
     // ✅ Store a New Unit
     public function store(Request $request)
