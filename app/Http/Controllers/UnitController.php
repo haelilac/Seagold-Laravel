@@ -220,7 +220,7 @@ public function getUnitsByCode($unit_code)
 
         // Attach matching tenants to their unit
         $units->map(function ($unit) use ($tenants) {
-            $unit->tenants = $tenants->filter(fn($t) => $t->unit_id === $unit->id)->values();
+            $unit->tenants = $tenants->filter(fn($t) => $t->unit_id == $unit->id)->values();
             return $unit;
         });
 
