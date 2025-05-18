@@ -219,7 +219,7 @@ class UnitController extends Controller
     $unitIds = Unit::where('unit_code', $unit_code)->pluck('id');
 
     $tenants = User::whereIn('unit_id', $unitIds)
-        ->select('id', 'name', 'email', 'stay_type', 'unit_id')
+        ->select('id', 'name', 'email', 'unit_id') // ✅ no more error
         ->get();
 
     return response()->json($tenants);
