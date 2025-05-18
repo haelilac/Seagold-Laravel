@@ -211,21 +211,8 @@ class UnitController extends Controller
     public function getUnitsByCode($unit_code)
     {
         $units = Unit::where('unit_code', $unit_code)->get();
-
-        $tenants = DB::table('users')
-            ->whereIn('unit_id', $units->pluck('id'))
-            ->select('id', 'name', 'email', 'stay_type') // Adjust columns as needed
-            ->get();
-
-        // Attach tenants to the response
-        $units->map(function ($unit) use ($tenants) {
-            $unit->tenants = $tenants->filter(fn($t) => $t->unit_id == $unit->id)->values();
-            return $unit;
-        });
-
         return response()->json($units);
     }
-
 
     // ✅ Store a New Unit
     public function store(Request $request)
