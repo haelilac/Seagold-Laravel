@@ -256,7 +256,7 @@ Route::put('/units/{id}/status', [UnitController::class, 'updateStatus']);
 
 // Unit Routes
 Route::apiResource('units', UnitController::class);
-
+Route::get('/units/{unit_code}/tenants', [UnitController::class, 'getTenantsByUnitCode']);
 // Authentication Routes
 Route::post('/login-guest', [AuthController::class, 'loginGuest'])->middleware('guest');
 Route::post('/login-admin-tenant', [AuthController::class, 'login']);

@@ -208,29 +208,22 @@ class UnitController extends Controller
     }
 
     // ✅ Get Units by Code
-public function getUnitsByCode($unit_code)
-{
-    try {
+    public function getUnitsByCode($unit_code)
+    {
         $units = Unit::where('unit_code', $unit_code)->get();
-
-        // Fetch users whose unit_id matches any of the unit ids for this unit_code
-        $unitIds = $units->pluck('id');
-
-        $tenants = User::whereIn('unit_id', $unitIds)->get(['id', 'name', 'email', 'stay_type', 'unit_id']);
-
-        // Attach matching tenants to their unit
-        $units->map(function ($unit) use ($tenants) {
-            $unit->tenants = $tenants->filter(fn($t) => $t->unit_id == $unit->id)->values();
-            return $unit;
-        });
-
         return response()->json($units);
-    } catch (\Throwable $e) {
-        \Log::error('getUnitsByCode error: ' . $e->getMessage());
-        return response()->json(['message' => 'Server error: ' . $e->getMessage()], 500);
     }
-}
 
+    public function getTenantsByUnitCode($unit_code)
+{
+    $unitIds = Unit::where('unit_code', $unit_code)->pluck('id');
+
+    $tenants = User::whereIn('unit_id', $unitIds)
+        ->select('id', 'name', 'email', 'stay_type', 'unit_id')
+        ->get();
+
+    return response()->json($tenants);
+}
 
     // ✅ Store a New Unit
     public function store(Request $request)
