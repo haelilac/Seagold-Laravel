@@ -253,7 +253,7 @@ Route::get('/applications', [ApplicationController::class, 'index']);
 Route::middleware('auth:sanctum')->post('/applications/{id}/accept', [ApplicationController::class, 'accept']);
 Route::delete('/applications/{id}/decline', [ApplicationController::class, 'decline']);
 Route::put('/units/{id}/status', [UnitController::class, 'updateStatus']);
-Route::get('/units/{unit_code}/tenants', [UnitController::class, 'getTenantsByUnitCode']);
+Route::get('/units/by-code/{unit_code}/tenants', [UnitController::class, 'getTenantsByUnitCode']);
 // Unit Routes
 Route::apiResource('units', UnitController::class);
 
