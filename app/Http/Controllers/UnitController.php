@@ -211,13 +211,6 @@ class UnitController extends Controller
     public function getUnitsByCode($unit_code)
     {
         $units = Unit::where('unit_code', $unit_code)->get();
-
-        foreach ($units as $unit) {
-            $unit->tenants = User::where('unit_id', $unit->id)
-                ->select('id', 'name', 'email', 'stay_type', 'unit_id')
-                ->get();
-        }
-
         return response()->json($units);
     }
 
