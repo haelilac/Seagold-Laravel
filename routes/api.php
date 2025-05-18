@@ -254,6 +254,7 @@ Route::middleware('auth:sanctum')->post('/applications/{id}/accept', [Applicatio
 Route::delete('/applications/{id}/decline', [ApplicationController::class, 'decline']);
 Route::put('/units/{id}/status', [UnitController::class, 'updateStatus']);
 Route::get('/units/by-code/{unit_code}/tenants', [UnitController::class, 'getTenantsByUnitCode']);
+Route::get('/units/by-code/{unit_code}', [UnitController::class, 'getUnitsByCode']);
 // Unit Routes
 Route::apiResource('units', UnitController::class);
 
@@ -300,8 +301,6 @@ Route::get('/run-contract-check', function () {
 });
 
 Route::get('/units', [UnitController::class, 'index']);
-Route::get('/units/by-code/{unit_code}', [UnitController::class, 'getUnitsByCode']);
-
 
 Route::get('/room-pricing', [UnitController::class, 'getRoomPricing']);
 Route::get('/room-pricing/{unit_code}', [UnitController::class, 'getRoomPricingByUnit']);
