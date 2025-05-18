@@ -210,9 +210,27 @@ class UnitController extends Controller
     // ✅ Get Units by Code
     public function getUnitsByCode($unit_code)
     {
-        $units = Unit::where('unit_code', $unit_code)->get();
-        return response()->json($units);
+        try {
+            $units = Unit::where('unit_code', $unit_code)->get();
+
+            $tenants = DB::table('users')
+                ->leftJoin('units', 'users.unit_id', '=', 'units.id')
+                ->where('units.unit_code', $unit_code)
+                ->select('users.id', 'users.name', 'users.email', 'users.stay_type', 'users.unit_id')
+                ->get();
+
+            $units->map(function ($unit) use ($tenants) {
+                $unit->tenants = $tenants->filter(fn($t) => $t->unit_id == $unit->id)->values();
+                return $unit;
+            });
+
+            return response()->json($units);
+        } catch (\Throwable $e) {
+            \Log::error('getUnitsByCode error: ' . $e->getMessage());
+            return response()->json(['message' => 'Server error: ' . $e->getMessage()], 500);
+        }
     }
+
 
     // ✅ Store a New Unit
     public function store(Request $request)
