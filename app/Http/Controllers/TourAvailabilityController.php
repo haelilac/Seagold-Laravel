@@ -189,15 +189,6 @@ class TourAvailabilityController extends Controller
         ]);
     
         try {
-            // Check slot availability
-            $availability = TourAvailability::where('date', $validated['date_booked'])
-                ->where('time', $validated['time_slot'])
-                ->where('status', 'available')
-                ->first();
-    
-            if (!$availability) {
-                return response()->json(['error' => 'Slot unavailable'], 400);
-            }
     
             // Save booking
             $bookingId = DB::table('booked_tour')->insertGetId([
@@ -209,8 +200,6 @@ class TourAvailabilityController extends Controller
                 'time_slot' => $validated['time_slot'],
             ]);
     
-            // Mark slot as booked
-            $availability->update(['status' => 'booked']);
     // ✅ Check if all slots for this date are now booked
 $remainingSlots = TourAvailability::where('date', $validated['date_booked'])
 ->where('status', 'available')
